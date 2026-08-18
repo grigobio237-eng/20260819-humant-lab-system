@@ -83,7 +83,7 @@ function App() {
                   <div className="text-xs text-gray-500">{bid.range}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-bold text-blue-600">{bid.recommended_est_rate}%</div>
+                  <div className="text-sm font-bold text-blue-600">{(Number(bid.recommended_est_rate) * 100).toFixed(4)}%</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
                   {formatCurrency(bid.calculated_bid_price)}

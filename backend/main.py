@@ -75,7 +75,7 @@ def process_new_bid(payload: BidPayload, company: CompanyPayload, db: Session = 
     is_qualified = check_qualification(payload.license_req or {}, company.licenses)
     
     # 5. 통계 엔진
-    recommended_est_rate = get_recommended_est_rate(MOCK_PAST_RATES, payload.range_min, payload.range_max)
+    recommended_est_rate = get_recommended_est_rate(MOCK_PAST_RATES, payload.range_min, payload.range_max, payload.client_name)
     
     # 6. 투찰가 계산
     calc_result = calculate_bid_price(

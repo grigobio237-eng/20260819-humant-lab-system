@@ -60,17 +60,62 @@ def get_lower_rate(base_price: float, client_name: str) -> float:
         # 50억 이상 ~ 100억 미만
         return 0.85495
 
-def get_recommended_est_rate(past_est_rates: list[float], range_min: float, range_max: float) -> Decimal:
+import random
+
+def simulate_monte_carlo_est_rate(range_min: float, range_max: float, client_name: str, simulations: int = 10000) -> float:
+    """
+    조달청 복수예비가격 작성 기준(100% 초과 7~8개, 100% 이하 7~8개)을 모사한 몬테카를로 시뮬레이션
+    """
+    results = []
+    mid_point = (range_min + range_max) / 2.0
+    
+    for _ in range(simulations):
+        # 100% (mid_point)를 기준으로 위/아래 개수 결정 (7:8 또는 8:7)
+        over_count = random.choice([7, 8])
+        under_count = 15 - over_count
+        
+        # 15개의 복수예비가격 생성
+        over_prices = [random.uniform(mid_point, range_max) for _ in range(over_count)]
+        under_prices = [random.uniform(range_min, mid_point) for _ in range(under_count)]
+        prices = over_prices + under_prices
+        
+        # 15개 중 무작위로 4개 추첨
+        selected = random.sample(prices, 4)
+        
+        # 4개의 평균 산출 (사정률)
+        avg_rate = sum(selected) / 4.0
+        results.append(avg_rate)
+    
+    # 최빈구간(1-sigma) 탐색을 위해 평균(기댓값) 계산
+    mu, std = norm.fit(results)
+    
+    # 동가 입찰(추첨 탈락) 방지를 위한 정밀 분산 오프셋 (Jitter)
+    # -0.0050% ~ +0.0050% 사이의 미세한 랜덤 값을 더해 100.0000% 정중앙을 회피
+    jitter = random.uniform(-0.0050, 0.0050)
+    
+    optimal_rate = mu + jitter
+    return optimal_rate
+
+def get_recommended_est_rate(past_est_rates: list[float], range_min: float, range_max: float, client_name: str) -> Decimal:
     """
     과거 사정률 데이터를 바탕으로 정규분포(가우시안)를 분석하여 최상위 빈도수(평균값 주변) 구간의 사정률 추천.
+    발주처(client_name) 및 사정률 구간별로 필터링된 과거 데이터를 입력받음.
     """
     if not past_est_rates or len(past_est_rates) < 10:
-        mid_val = (range_min + range_max) / 2
-        return Decimal(str(mid_val / 100.0)).quantize(Decimal('0.00001'), rounding=ROUND_HALF_UP)
+        # 데이터가 부족한 경우 몬테카를로 시뮬레이터 가동
+        simulated_rate = simulate_monte_carlo_est_rate(range_min, range_max, client_name)
+        # 퍼센티지를 비율로 변환 (예: 100.2345 -> 1.002345)
+        return Decimal(str(simulated_rate / 100.0)).quantize(Decimal('0.00001'), rounding=ROUND_HALF_UP)
     
+    # 과거 낙찰 데이터가 충분할 경우, 정규분포 피팅
     mu, std = norm.fit(past_est_rates)
-    recommended_rate = Decimal(str(mu)).quantize(Decimal('0.00001'), rounding=ROUND_HALF_UP)
-    return recommended_rate
+    
+    # 과거 데이터 기반일 때도 동가 입찰 방지를 위해 미세 오프셋 적용
+    jitter = random.uniform(-0.0050, 0.0050)
+    optimal_rate = mu + jitter
+    
+    # 퍼센티지를 비율로 변환하여 반환
+    return Decimal(str(optimal_rate / 100.0)).quantize(Decimal('0.00001'), rounding=ROUND_HALF_UP)
 
 def calculate_bid_price(base_price: float, a_value: float, net_cost: float, lower_rate: float, est_rate: Decimal) -> dict:
     """
