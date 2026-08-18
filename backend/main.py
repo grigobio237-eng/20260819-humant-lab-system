@@ -47,7 +47,7 @@ class CompanyPayload(BaseModel):
     licenses: Dict[str, float] = Field(..., title="자사 보유 면허")
     
 # --- Mock Data (과거 사정률 대체용) ---
-MOCK_PAST_RATES = [1.001, 1.002, 0.998, 0.999, 1.000, 1.003, 0.997, 1.000, 1.001, 0.999]
+MOCK_PAST_RATES = []
 
 @app.get("/", summary="루트(Root) 상태 확인")
 def read_root():
