@@ -1,34 +1,87 @@
 import numpy as np
 from scipy.stats import norm
 from decimal import Decimal, ROUND_HALF_UP
+import httpx
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+async def fetch_a_value(bid_no: str, bid_seq: str) -> float:
+    """
+    조달청 OpenAPI (입찰가격산식A정보조회)를 호출하여 A값을 가져옵니다.
+    """
+    service_key = "06729b226c522143633d5b32cb343affcb4b20bc8b9c96627f9c109a65e7ab96" # n8n 템플릿의 서비스키 (또는 환경변수로 교체 가능)
+    url = "http://apis.data.go.kr/1230000/ad/BidPublicInfoService/getBidPblancListBidPrceCalclAInfo"
+    params = {
+        "ServiceKey": service_key,
+        "numOfRows": "1",
+        "pageNo": "1",
+        "inqryDiv": "2", # 2: 공고번호로 조회
+        "bidNtceNo": bid_no,
+        "type": "json"
+    }
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, params=params, timeout=10.0)
+            if response.status_code == 200:
+                data = response.json()
+                items = data.get("response", {}).get("body", {}).get("items", [])
+                if items:
+                    # 응답 데이터에서 A값 필드 파싱 (실제 API 응답 구조에 맞춤)
+                    # 입찰가격산식A정보조회 응답에는 'aValueAmount' 등의 필드가 존재함
+                    item = items[0]
+                    # API 문서상 예상되는 필드명 (국민연금, 건강보험, 퇴직공제부금 등 합산이 A값임)
+                    # 실제 응답 필드명이 다르다면 수정 필요. 여기서는 aValAmount나 totAVal 등을 찾음
+                    # 만약 명시적인 A값이 없다면, 특정 보험료들의 합으로 계산
+                    a_value = float(item.get("totAValAmount", item.get("aValue", 0.0)))
+                    
+                    # 만약 필드명이 쪼개져 있다면 예시:
+                    if a_value == 0.0:
+                        npn = float(item.get('ntnlPenInsPrmAmount', 0.0))
+                        hth = float(item.get('hlthInsPrmAmount', 0.0))
+                        rtm = float(item.get('rtrmntDedcAmnt', 0.0))
+                        isaf = float(item.get('indstSftyHlthMngmntCst', 0.0))
+                        a_value = npn + hth + rtm + isaf
+                    
+                    logger.info(f"[{bid_no}] A값 수집 완료: {a_value}")
+                    return a_value
+    except Exception as e:
+        logger.error(f"[{bid_no}] A값 수집 실패: {str(e)}")
+    
+    return 0.0
+
+def get_lower_rate(base_price: float, client_name: str) -> float:
+    """
+    기초금액과 발주처에 따른 낙찰하한율(R_lower) 결정 로직
+    """
+    # 임시 하드코딩된 규칙 (조달청 시설공사 적격심사 세부기준 기준)
+    # 실제로는 100억, 50억, 10억 미만 등 더 세밀한 기준과 조달청/지자체/국방부 구분이 필요
+    
+    if base_price < 1_000_000_000:
+        return 0.87745
+    elif base_price < 5_000_000_000:
+        return 0.86745
+    else:
+        # 50억 이상 ~ 100억 미만
+        return 0.85495
 
 def get_recommended_est_rate(past_est_rates: list[float], range_min: float, range_max: float) -> Decimal:
     """
     과거 사정률 데이터를 바탕으로 정규분포(가우시안)를 분석하여 최상위 빈도수(평균값 주변) 구간의 사정률 추천.
-    만약 과거 데이터가 부족하면 허용 범위(range_min ~ range_max)의 중간값을 반환.
     """
     if not past_est_rates or len(past_est_rates) < 10:
-        # 데이터가 부족한 경우 중간값 (예: 97~103 이면 100)
         mid_val = (range_min + range_max) / 2
-        # 퍼센티지를 비율로 변환 (예: 100 -> 1.0)
         return Decimal(str(mid_val / 100.0)).quantize(Decimal('0.00001'), rounding=ROUND_HALF_UP)
     
-    # 정규분포 피팅 (평균과 표준편차)
     mu, std = norm.fit(past_est_rates)
-    
-    # 평균값을 최적 사정률로 선택 (향후 최빈값이나 특정 확률 분포 구간으로 고도화 가능)
-    # 비율로 반환
     recommended_rate = Decimal(str(mu)).quantize(Decimal('0.00001'), rounding=ROUND_HALF_UP)
     return recommended_rate
 
 def calculate_bid_price(base_price: float, a_value: float, net_cost: float, lower_rate: float, est_rate: Decimal) -> dict:
     """
     투찰가 산식 적용 엔진
-    base_price: 기초금액 (P_base)
-    a_value: A값
-    net_cost: 순공사원가 (C_net)
-    lower_rate: 낙찰하한율 (R_lower)
-    est_rate: 사정률 (R_est)
     """
     P_base = Decimal(str(base_price))
     A = Decimal(str(a_value))
@@ -42,7 +95,7 @@ def calculate_bid_price(base_price: float, a_value: float, net_cost: float, lowe
     # 1. A값 반영 산식: [(예정가격 - A) * 낙찰하한율] + A
     raw_bid_price = ((est_price - A) * R_lower) + A
     
-    # 원단위 절상 (또는 절사 기준에 맞춰 적용 - 보통 0원 단위 절상)
+    # 원단위 절상
     raw_bid_price = raw_bid_price.quantize(Decimal('1.'), rounding=ROUND_HALF_UP)
     
     # 2. 순공사원가 하한선(98%) 검증
@@ -63,17 +116,12 @@ def calculate_bid_price(base_price: float, a_value: float, net_cost: float, lowe
     }
 
 def check_qualification(bid_license_req: dict, company_licenses: dict) -> bool:
-    """
-    적격심사 시뮬레이터 (간단화된 예시)
-    공고가 요구하는 면허가 자사 프로필에 모두 있는지 검증
-    """
     if not bid_license_req:
         return True
         
     for req_license, req_amount in bid_license_req.items():
         if req_license not in company_licenses:
             return False
-        # 요구 시공능력평가액 조건이 있다면 검증
         if float(company_licenses[req_license]) < float(req_amount):
             return False
             
