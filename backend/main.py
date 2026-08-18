@@ -54,7 +54,7 @@ def read_root():
     return {"status": "ok", "message": "휴먼트 랩 시스템 API 정상 가동 중"}
 
 @app.post("/api/v1/calculate", summary="신규 공고 투찰가 계산 및 DB 적재")
-async def process_new_bid(payload: BidPayload, company: CompanyPayload, db: Session = Depends(get_db)):
+def process_new_bid(payload: BidPayload, company: CompanyPayload, db: Session = Depends(get_db)):
     """
     n8n 자동화 봇에서 신규 공고 데이터를 넘겨줄 때 호출됩니다.
     계산 로직 수행 후 DB(bids, calculated_bids)에 저장합니다.
@@ -65,7 +65,7 @@ async def process_new_bid(payload: BidPayload, company: CompanyPayload, db: Sess
         return {"status": "skipped", "message": "이미 처리된 공고입니다."}
 
     # 2. A값 동적 수집 (n8n이 던져준 공고번호로 직접 조달청 API 호출)
-    fetched_a_value = await fetch_a_value(payload.bid_no, payload.bid_seq)
+    fetched_a_value = fetch_a_value(payload.bid_no, payload.bid_seq)
     final_a_value = fetched_a_value if fetched_a_value > 0 else payload.a_value
 
     # 3. 낙찰하한율 동적 계산 (기초금액 기준)
