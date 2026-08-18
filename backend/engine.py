@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.stats import norm
 from decimal import Decimal, ROUND_HALF_UP
-import requests
+import httpx
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -23,7 +23,7 @@ def fetch_a_value(bid_no: str, bid_seq: str) -> float:
     }
     
     try:
-        response = requests.get(url, params=params, timeout=10.0)
+        response = httpx.get(url, params=params, timeout=10.0)
         if response.status_code == 200:
             data = response.json()
             items = data.get("response", {}).get("body", {}).get("items", [])
