@@ -150,6 +150,11 @@ def get_bids(db: Session = Depends(get_db)):
             "calculated_bid_price": float(calc.calculated_bid_price) if calc else 0.0,
             "is_qualified": calc.is_qualified if calc else False,
             "deadline": bid.deadline.strftime("%Y-%m-%d %H:%M"),
-            "status": calc.review_status if calc else "PENDING"
+            "status": calc.review_status if calc else "PENDING",
+            "a_value": float(bid.a_value),
+            "net_cost": float(bid.net_cost),
+            "lower_rate": float(bid.lower_rate),
+            "is_net_cost_applied": calc.is_net_cost_applied if calc else False,
+            "link_url": f"https://www.g2b.go.kr:8081/ep/invitation/publish/bidInfoDtl.do?bidno={bid.bid_no}&bidseq={bid.bid_seq}"
         })
     return data
