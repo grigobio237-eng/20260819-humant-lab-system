@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: humant_db
+    environment:
+      POSTGRES_USER: humant_admin
+      POSTGRES_PASSWORD: humant_password
+      POSTGRES_DB: humant_db
+      TZ: Asia/Seoul
+    ports:
+      - "5432:5432"
+    volumes:
+      - humant_pgdata:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: humant_api
+    environment:
+      - DATABASE_URL=postgresql+pg8000://humant_admin:humant_password@postgres:5432/humant_db
+      - TZ=Asia/Seoul
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+volumes:
+  humant_pgdata:

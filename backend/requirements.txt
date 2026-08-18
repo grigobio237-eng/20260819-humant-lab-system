@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+sqlalchemy==2.0.23
+pg8000==1.30.3
+pydantic
+pydantic-settings
+numpy
+scipy
