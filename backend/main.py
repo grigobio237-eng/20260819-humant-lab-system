@@ -53,6 +53,23 @@ MOCK_PAST_RATES = []
 def read_root():
     return {"status": "ok", "message": "휴먼트 랩 시스템 API 정상 가동 중"}
 
+import traceback
+
+@app.post("/api/v1/test_calculate")
+def test_process_new_bid(payload: BidPayload, company: CompanyPayload, db: Session = Depends(get_db)):
+    try:
+        existing_bid = db.query(models.Bid).filter(models.Bid.bid_full_no == payload.bid_full_no).first()
+        fetched_a_value = fetch_a_value(payload.bid_no, payload.bid_seq)
+        final_a_value = fetched_a_value if fetched_a_value > 0 else payload.a_value
+        dynamic_lower_rate = get_lower_rate(payload.base_price, payload.client_name)
+        is_qualified = check_qualification(payload.license_req or {}, company.licenses)
+        recommended_est_rate = get_recommended_est_rate(MOCK_PAST_RATES, payload.range_min, payload.range_max, payload.client_name)
+        calc_result = calculate_bid_price(payload.base_price, final_a_value, payload.net_cost, dynamic_lower_rate, recommended_est_rate)
+        
+        return {"status": "success", "recommended_est_rate": float(recommended_est_rate)}
+    except Exception as e:
+        return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
+
 @app.post("/api/v1/calculate", summary="신규 공고 투찰가 계산 및 DB 적재")
 def process_new_bid(payload: BidPayload, company: CompanyPayload, db: Session = Depends(get_db)):
     """
