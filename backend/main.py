@@ -155,6 +155,6 @@ def get_bids(db: Session = Depends(get_db)):
             "net_cost": float(bid.net_cost),
             "lower_rate": float(bid.lower_rate),
             "is_net_cost_applied": calc.is_net_cost_applied if calc else False,
-            "link_url": f"https://www.g2b.go.kr:8081/ep/invitation/publish/bidInfoDtl.do?bidno={bid.bid_no}&bidseq={bid.bid_seq}"
+            "link_url": f"https://www.g2b.go.kr/pt/menu/selectSubFrame.do?framesrc=/ep/invitation/publish/bidInfoDtl.do?bidno={bid.bid_no}%26bidseq={bid.bid_seq}"
         })
     return data
