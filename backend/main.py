@@ -157,7 +157,9 @@ def get_bids(company_id: Optional[int] = None, db: Session = Depends(get_db)):
                 bid.license_condition or '',
                 bid.region_condition or '',
                 company.licenses or {},
-                company.region_code or ''
+                company.region_code or '',
+                bid.bid_name or '',
+                float(bid.base_price or 0)
             )
             
         data.append({
