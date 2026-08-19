@@ -102,6 +102,23 @@ def process_new_bid(payload: BidPayload, db: Session = Depends(get_db)):
     if existing_bid:
         return {"status": "skipped", "message": "이미 처리된 공고입니다."}
 
+    import asyncio
+    from scraper import scrape_g2b_details
+    # 크롤러 실행 (동기 블록 안에서 asyncio.run 사용)
+    scraped_data = asyncio.run(scrape_g2b_details(payload.bid_no, payload.bid_seq))
+    
+    if payload.raw_data is None:
+        payload.raw_data = {}
+        
+    if scraped_data.get("status") == "success":
+        # OpenAPI에서 비어있던 데이터를 크롤링 데이터로 덮어쓰기
+        if scraped_data.get("license_condition"):
+            payload.raw_data["prtcptQlfCndNm"] = scraped_data["license_condition"]
+            payload.license_condition = scraped_data["license_condition"]
+        if scraped_data.get("region_condition"):
+            payload.raw_data["prtcptPosblRgnNm"] = scraped_data["region_condition"]
+            payload.region_condition = scraped_data["region_condition"]
+
     fetched_a_value = fetch_a_value(payload.bid_no, payload.bid_seq)
     final_a_value = fetched_a_value if fetched_a_value > 0 else payload.a_value
     dynamic_lower_rate = get_lower_rate(payload.base_price, payload.client_name)
