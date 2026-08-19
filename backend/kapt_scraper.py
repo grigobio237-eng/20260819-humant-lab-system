@@ -31,18 +31,21 @@ async def scrape_kapt_bids(limit: int = 10):
                     if not text_content.strip() or "데이터가 없습니다" in text_content:
                         continue
                         
-                    # Extract bid_no from onclick or href if possible, or just click it
-                    links = await row.locator("a").all()
-                    if not links:
+                    # K-apt 리스트의 첫번째 td onclick 속성에서 bidNum 추출
+                    td_onclick = await row.locator("td").first.get_attribute("onclick")
+                    if not td_onclick or "goView" not in td_onclick:
                         continue
                         
-                    main_link = links[0]
-                    # 새 탭(팝업)으로 상세정보 열기
-                    async with context.expect_page() as new_page_info:
-                        await main_link.click()
-                    detail_page = await new_page_info.value
+                    match = re.search(r"goView\('(\d+)'\)", td_onclick)
+                    if not match:
+                        continue
+                        
+                    bid_num = match.group(1)
                     
-                    await detail_page.wait_for_load_state("networkidle")
+                    # 새 탭으로 상세페이지 URL 직접 이동
+                    detail_page = await context.new_page()
+                    detail_url = f"https://www.k-apt.go.kr/bid/bidDetail.do?bidNum={bid_num}"
+                    await detail_page.goto(detail_url, wait_until="networkidle")
                     detail_text = await detail_page.evaluate("document.body.innerText")
                     
                     # 1. K-apt 기초 데이터 정규식 추출 시도
