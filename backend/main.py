@@ -37,9 +37,9 @@ class BidPayload(BaseModel):
     lower_rate: float = Field(...)
     range_min: float = Field(97.0)
     range_max: float = Field(103.0)
-    deadline: datetime.datetime = Field(...)
     license_condition: Optional[str] = Field(None)
     region_condition: Optional[str] = Field(None)
+    raw_data: Optional[dict] = Field(None)
 
 class CompanyProfilePayload(BaseModel):
     company_name: str
@@ -123,7 +123,8 @@ def process_new_bid(payload: BidPayload, db: Session = Depends(get_db)):
         range_max=payload.range_max,
         deadline=payload.deadline,
         license_condition=payload.license_condition,
-        region_condition=payload.region_condition
+        region_condition=payload.region_condition,
+        raw_data=payload.raw_data or {}
     )
     db.add(new_bid)
     
@@ -177,6 +178,7 @@ def get_bids(company_id: Optional[int] = None, db: Session = Depends(get_db)):
             "net_cost": float(bid.net_cost),
             "lower_rate": float(bid.lower_rate),
             "is_net_cost_applied": calc.is_net_cost_applied if calc else False,
+            "raw_data": bid.raw_data or {},
             "link_url": f"https://www.g2b.go.kr/link/PNPE027_01/single/?bidPbancNo={bid.bid_no}&bidPbancOrd={bid.bid_seq}" if bid.bid_no.startswith("R") else f"https://www.g2b.go.kr/pt/menu/selectSubFrame.do?framesrc=/ep/invitation/publish/bidInfoDtl.do?bidno={bid.bid_no}%26bidseq={bid.bid_seq}"
         })
     return data
