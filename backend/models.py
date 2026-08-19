@@ -23,6 +23,8 @@ class Bid(Base):
     client_name = Column(String(100))
     region_code = Column(String(255))
     license_req = Column(JSON)
+    license_condition = Column(String)
+    region_condition = Column(String)
     base_price = Column(Numeric(15, 0), nullable=False)
     a_value = Column(Numeric(15, 0), default=0)
     net_cost = Column(Numeric(15, 0), default=0)

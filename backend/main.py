@@ -38,8 +38,8 @@ class BidPayload(BaseModel):
     range_min: float = Field(97.0)
     range_max: float = Field(103.0)
     deadline: datetime.datetime = Field(...)
-    license_req: Optional[Dict[str, float]] = Field(None)
-    region: str = Field("전국") # 추가된 지역제한 필드
+    license_condition: Optional[str] = Field(None)
+    region_condition: Optional[str] = Field(None)
 
 class CompanyProfilePayload(BaseModel):
     company_name: str
@@ -122,8 +122,8 @@ def process_new_bid(payload: BidPayload, db: Session = Depends(get_db)):
         range_min=payload.range_min,
         range_max=payload.range_max,
         deadline=payload.deadline,
-        region_code=payload.region,
-        license_req=payload.license_req
+        license_condition=payload.license_condition,
+        region_condition=payload.region_condition
     )
     db.add(new_bid)
     
@@ -154,10 +154,10 @@ def get_bids(company_id: Optional[int] = None, db: Session = Depends(get_db)):
         is_qualified = False
         if company:
             is_qualified = check_qualification(
-                bid.license_req or {},
+                bid.license_condition or '',
+                bid.region_condition or '',
                 company.licenses or {},
-                bid.region_code,
-                company.region_code
+                company.region_code or ''
             )
             
         data.append({
