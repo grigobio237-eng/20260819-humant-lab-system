@@ -244,7 +244,14 @@ function App() {
                 </td>
                 <td className="px-6 py-4">
                   <div className="text-sm font-medium text-gray-900 line-clamp-1">{bid.bid_name}</div>
-                  <div className="text-sm text-gray-500">{bid.client_name}</div>
+                  <div className="text-sm text-gray-500">
+                    {bid.client_name.includes('[K-apt]') ? (
+                      <span className="bg-purple-100 text-purple-800 text-xs px-1.5 py-0.5 rounded mr-1 font-bold">K-apt</span>
+                    ) : (
+                      <span className="bg-blue-100 text-blue-800 text-xs px-1.5 py-0.5 rounded mr-1 font-bold">나라장터</span>
+                    )}
+                    {bid.client_name.replace('[K-apt]', '').trim()}
+                  </div>
                   {bid.is_net_cost_applied && (
                     <div className="mt-1 inline-block bg-orange-100 text-orange-800 text-xs px-2 py-0.5 rounded font-bold">
                       ⚠️ 순공사원가 98% 하한선 적용

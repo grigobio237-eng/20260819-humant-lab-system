@@ -179,6 +179,69 @@ def process_new_bid(payload: BidPayload, db: Session = Depends(get_db)):
 from fastapi.responses import FileResponse
 import os
 import glob
+from kapt_scraper import scrape_kapt_bids
+from engine import calculate_bid_price, get_lower_rate, get_recommended_est_rate, MOCK_PAST_RATES
+
+@app.get("/api/v1/kapt/sync")
+def sync_kapt_bids(limit: int = 10, db: Session = Depends(get_db)):
+    import asyncio
+    kapt_bids = asyncio.run(scrape_kapt_bids(limit))
+    saved_count = 0
+    
+    for b in kapt_bids:
+        existing = db.query(models.Bid).filter(models.Bid.bid_full_no == b["bid_full_no"]).first()
+        if not existing:
+            # 기본값 세팅 및 투찰가 계산
+            dynamic_lower_rate = b.get("extracted_lower_rate") if b.get("extracted_lower_rate") > 0 else get_lower_rate(b["base_price"], b["client_name"])
+            recommended_est_rate = get_recommended_est_rate(MOCK_PAST_RATES, 97.0, 103.0, b["client_name"])
+            
+            calc_result = calculate_bid_price(
+                b["base_price"], 
+                b["extracted_a_value"], 
+                0.0, 
+                dynamic_lower_rate, 
+                recommended_est_rate
+            )
+            
+            new_bid = models.Bid(
+                bid_full_no=b["bid_full_no"],
+                bid_no=b["bid_no"],
+                bid_seq=b["bid_seq"],
+                bid_name=b["bid_name"],
+                client_name=b["client_name"],
+                base_price=b["base_price"],
+                a_value=b["extracted_a_value"],
+                net_cost=0.0,
+                lower_rate=dynamic_lower_rate,
+                range_min=97.0,
+                range_max=103.0,
+                deadline=b["deadline"],
+                license_condition=b["license_condition"],
+                region_condition=b["region_condition"],
+                raw_data={
+                    "scraped_a_value": b["extracted_a_value"],
+                    "scraped_lower_rate": b["extracted_lower_rate"],
+                    "a_value_breakdown": b["a_value_breakdown"],
+                    "confidence_level": b["confidence_level"],
+                    "source": "K-apt"
+                }
+            )
+            db.add(new_bid)
+            db.commit()
+            db.refresh(new_bid)
+            
+            new_calc = models.CalculatedBid(
+                bid_id=new_bid.id,
+                recommended_est_rate=recommended_est_rate,
+                calculated_bid_price=calc_result["final_bid_price"],
+                is_a_value_applied=calc_result["is_a_value_applied"],
+                is_net_cost_applied=calc_result["is_net_cost_applied"]
+            )
+            db.add(new_calc)
+            db.commit()
+            saved_count += 1
+            
+    return {"status": "success", "scraped": len(kapt_bids), "saved": saved_count}
 
 @app.get("/api/v1/bids/{bid_full_no}/download")
 def download_attachment(bid_full_no: str):
