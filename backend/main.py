@@ -276,6 +276,11 @@ def get_bids(company_id: Optional[int] = None, db: Session = Depends(get_db)):
                 float(bid.base_price or 0)
             )
             
+        if bid.bid_full_no.startswith("KAPT-"):
+            link_url = "https://www.k-apt.go.kr/bid/bidList.do"
+        else:
+            link_url = f"https://www.g2b.go.kr/link/PNPE027_01/single/?bidPbancNo={bid.bid_no}&bidPbancOrd={bid.bid_seq}" if bid.bid_no.startswith("R") else f"https://www.g2b.go.kr/pt/menu/selectSubFrame.do?framesrc=/ep/invitation/publish/bidInfoDtl.do?bidno={bid.bid_no}%26bidseq={bid.bid_seq}"
+            
         data.append({
             "bid_full_no": bid.bid_full_no,
             "bid_name": bid.bid_name,
@@ -292,6 +297,6 @@ def get_bids(company_id: Optional[int] = None, db: Session = Depends(get_db)):
             "lower_rate": float(bid.lower_rate),
             "is_net_cost_applied": calc.is_net_cost_applied if calc else False,
             "raw_data": bid.raw_data or {},
-            "link_url": f"https://www.g2b.go.kr/link/PNPE027_01/single/?bidPbancNo={bid.bid_no}&bidPbancOrd={bid.bid_seq}" if bid.bid_no.startswith("R") else f"https://www.g2b.go.kr/pt/menu/selectSubFrame.do?framesrc=/ep/invitation/publish/bidInfoDtl.do?bidno={bid.bid_no}%26bidseq={bid.bid_seq}"
+            "link_url": link_url
         })
     return data

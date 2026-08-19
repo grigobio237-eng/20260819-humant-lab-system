@@ -13,9 +13,9 @@ async def test():
         async with detail_page.expect_navigation(wait_until="domcontentloaded"):
             await detail_page.evaluate("goView('20260819200537978')")
             
-        print("Navigation done. Extracting text...")
         text = await detail_page.evaluate("document.body.innerText")
-        print("Extracted text preview:", text[:200])
+        print("Extracted text:")
+        print(text)
         await browser.close()
 
 asyncio.run(test())

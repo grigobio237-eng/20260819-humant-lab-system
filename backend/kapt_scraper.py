@@ -36,7 +36,6 @@ async def scrape_kapt_bids(limit: int = 10):
                         
                     bid_num = match.group(1)
                     
-                    # Open a NEW page, go to the list page, then navigate via JS goView
                     detail_page = await context.new_page()
                     await detail_page.goto(url, wait_until="domcontentloaded", timeout=60000)
                     
@@ -46,16 +45,28 @@ async def scrape_kapt_bids(limit: int = 10):
                     await asyncio.sleep(1)
                     detail_text = await detail_page.evaluate("document.body.innerText")
                     
-                    bid_no_match = re.search(r"공고번호\s*[:\]]?\s*([A-Za-z0-9\-]+)", detail_text)
-                    bid_name_match = re.search(r"입찰공고명\s*[:\]]?\s*(.+)", detail_text)
-                    client_match = re.search(r"단지명\s*[:\]]?\s*(.+)", detail_text)
-                    base_price_match = re.search(r"기초금액\s*[:\]]?\s*금?\s*([\d,]+)\s*원", detail_text)
-                    deadline_match = re.search(r"서류제출\s*마감일시\s*[:\]]?\s*([\d\-\.\s:]+)", detail_text)
+                    # Update regexes to match K-apt actual text
+                    bid_no_match = re.search(r"입찰번호\s*[:\]]?\s*([A-Za-z0-9\-]+)", detail_text)
+                    bid_name_match = re.search(r"입찰제목\s*[:\]]?\s*(.+)", detail_text)
+                    client_match = re.search(r"단지명\s*관리사무소.*?[\r\n]+(.*?)\s*\(", detail_text, re.DOTALL)
+                    if not client_match:
+                        # Fallback for client
+                        client_match = re.search(r"단지명\s*[:\]]?\s*(.+)", detail_text)
                     
+                    base_price_match = re.search(r"기초금액\s*[:\]]?\s*금?\s*([\d,]+)\s*원", detail_text)
+                    if not base_price_match:
+                        # K-apt might use "입찰보증금" or something instead, but base_price might be missing.
+                        base_price = 0.0
+                    else:
+                        base_price = float(base_price_match.group(1).replace(",", ""))
+                    
+                    deadline_match = re.search(r"서류제출마감일\s*[:\]]?\s*([\d\-\.\s:]+)", detail_text)
+                    if not deadline_match:
+                        deadline_match = re.search(r"입찰서 제출 마감일\s*[:\]]?\s*([\d\-\.\s:]+)", detail_text)
+                        
                     bid_no = bid_no_match.group(1).strip() if bid_no_match else f"KAPT-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
                     bid_name = bid_name_match.group(1).strip() if bid_name_match else "K-apt 민간공고"
                     client_name = client_match.group(1).strip() if client_match else "아파트단지"
-                    base_price = float(base_price_match.group(1).replace(",", "")) if base_price_match else 0.0
                     deadline_str = deadline_match.group(1).strip() if deadline_match else datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     
                     region_cond = ""
@@ -66,23 +77,28 @@ async def scrape_kapt_bids(limit: int = 10):
                     license_match = re.search(r"참가자격\s*[:\]]?\s*(.+)", detail_text)
                     if license_match: license_cond = license_match.group(1).strip()
                     
-                    attachment_dir = f"storage/attachments/{bid_no}"
+                    attachment_dir = f"storage/attachments/KAPT-{bid_no}"
                     os.makedirs(attachment_dir, exist_ok=True)
                     
-                    download_links = await detail_page.locator("a:has-text('다운로드'), a:has-text('공고문'), a:has-text('파일')").all()
+                    # For downloading files in K-apt, it usually uses a function called fileDown
+                    # Let's find links that actually download files. Usually "a:has-text('공고문 참조')" or similar
+                    download_links = await detail_page.locator("a:has-text('다운로드'), a:has-text('공고문 참조'), a[href*='fileDown']").all()
+                    
                     if download_links:
-                        try:
-                            async with detail_page.expect_download(timeout=5000) as download_info:
-                                await download_links[0].click(timeout=5000)
-                            download = await download_info.value
-                            await download.save_as(os.path.join(attachment_dir, download.suggested_filename))
-                        except Exception as e:
-                            pass
+                        for idx, d_link in enumerate(download_links):
+                            try:
+                                async with detail_page.expect_download(timeout=5000) as download_info:
+                                    await d_link.click(timeout=5000)
+                                download = await download_info.value
+                                await download.save_as(os.path.join(attachment_dir, download.suggested_filename))
+                                break # Stop after successful download
+                            except Exception as e:
+                                pass
                     
                     parsed_data = parse_bid_text(detail_text, base_price)
                     
                     results.append({
-                        "bid_full_no": bid_no,
+                        "bid_full_no": f"KAPT-{bid_no}",
                         "bid_no": bid_no,
                         "bid_seq": "000",
                         "bid_name": bid_name,
