@@ -105,7 +105,7 @@ def process_new_bid(payload: BidPayload, db: Session = Depends(get_db)):
     import asyncio
     from scraper import scrape_g2b_details
     # 크롤러 실행 (동기 블록 안에서 asyncio.run 사용)
-    scraped_data = asyncio.run(scrape_g2b_details(payload.bid_no, payload.bid_seq))
+    scraped_data = asyncio.run(scrape_g2b_details(payload.bid_no, payload.bid_seq, payload.bid_full_no, payload.base_price))
     
     if payload.raw_data is None:
         payload.raw_data = {}
@@ -118,14 +118,32 @@ def process_new_bid(payload: BidPayload, db: Session = Depends(get_db)):
         if scraped_data.get("region_condition"):
             payload.raw_data["prtcptPosblRgnNm"] = scraped_data["region_condition"]
             payload.region_condition = scraped_data["region_condition"]
+            
+        # A값 및 하한율 파싱 데이터 적용
+        payload.raw_data["scraped_a_value"] = scraped_data.get("extracted_a_value", 0.0)
+        payload.raw_data["scraped_lower_rate"] = scraped_data.get("extracted_lower_rate", 0.0)
+        payload.raw_data["a_value_breakdown"] = scraped_data.get("a_value_breakdown", {})
+        payload.raw_data["confidence_level"] = scraped_data.get("confidence_level", "LOW")
 
     fetched_a_value = fetch_a_value(payload.bid_no, payload.bid_seq)
-    final_a_value = fetched_a_value if fetched_a_value > 0 else payload.a_value
-    dynamic_lower_rate = get_lower_rate(payload.base_price, payload.client_name)
+    
+    # 파싱된 A값 최우선 적용, 그 다음 API 조회값, 그 다음 payload 값
+    if payload.raw_data.get("scraped_a_value", 0.0) > 0:
+        final_a_value = payload.raw_data["scraped_a_value"]
+    else:
+        final_a_value = fetched_a_value if fetched_a_value > 0 else payload.a_value
+        
+    # 파싱된 하한율 최우선 적용
+    if payload.raw_data.get("scraped_lower_rate", 0.0) > 0:
+        dynamic_lower_rate = payload.raw_data["scraped_lower_rate"]
+    else:
+        dynamic_lower_rate = get_lower_rate(payload.base_price, payload.client_name)
+        
     recommended_est_rate = get_recommended_est_rate(MOCK_PAST_RATES, payload.range_min, payload.range_max, payload.client_name)
     calc_result = calculate_bid_price(
         payload.base_price, final_a_value, payload.net_cost, dynamic_lower_rate, recommended_est_rate
     )
+
     
     new_bid = models.Bid(
         bid_full_no=payload.bid_full_no,
@@ -157,6 +175,20 @@ def process_new_bid(payload: BidPayload, db: Session = Depends(get_db)):
     db.commit()
     
     return {"status": "success", "bid_full_no": payload.bid_full_no}
+
+from fastapi.responses import FileResponse
+import os
+import glob
+
+@app.get("/api/v1/bids/{bid_full_no}/download")
+def download_attachment(bid_full_no: str):
+    dir_path = f"storage/attachments/{bid_full_no}"
+    if os.path.exists(dir_path):
+        files = glob.glob(f"{dir_path}/*")
+        if files:
+            # 첫 번째 첨부파일 다운로드
+            return FileResponse(path=files[0], filename=os.path.basename(files[0]))
+    raise HTTPException(status_code=404, detail="File not found")
 
 @app.get("/api/v1/bids")
 def get_bids(company_id: Optional[int] = None, db: Session = Depends(get_db)):

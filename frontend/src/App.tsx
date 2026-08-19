@@ -310,7 +310,36 @@ function App() {
                     <div className="flex justify-between border-b pb-1"><span className="text-gray-500">낙찰방법</span> <span className="font-medium text-right text-gray-900">{selectedBid.raw_data.scsbidMthdNm || '-'}</span></div>
                     <div className="flex justify-between border-b pb-1"><span className="text-gray-500">공동수급여부</span> <span className="font-medium text-right text-gray-900">{selectedBid.raw_data.cmmnSpldmdAgrmntMthdNm || '-'}</span></div>
                     <div className="flex justify-between border-b pb-1"><span className="text-gray-500">발주기관</span> <span className="font-medium text-right text-gray-900">{selectedBid.raw_data.ntceInsttNm || '-'}</span></div>
-                    <div className="flex flex-col border-b pb-1 col-span-2">
+                    
+                    {/* A값 추출 결과 */}
+                    {selectedBid.raw_data.scraped_a_value !== undefined && (
+                      <div className="flex flex-col border-b pb-1 col-span-2 mt-2 bg-yellow-50 p-2 rounded">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-gray-700 font-bold">첨부파일 AI 파싱 데이터</span>
+                          <span className={`text-xs px-2 py-1 rounded-full text-white ${selectedBid.raw_data.confidence_level === 'HIGH' ? 'bg-green-500' : 'bg-yellow-500'}`}>
+                            신뢰도: {selectedBid.raw_data.confidence_level}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 mt-1">
+                          <div className="flex justify-between"><span className="text-gray-500">낙찰하한율</span><span className="font-medium">{selectedBid.raw_data.scraped_lower_rate > 0 ? `${(selectedBid.raw_data.scraped_lower_rate * 100).toFixed(3)}%` : '-'}</span></div>
+                          <div className="flex justify-between"><span className="text-gray-500">A값 합산금액</span><span className="font-medium">{selectedBid.raw_data.scraped_a_value > 0 ? formatCurrency(selectedBid.raw_data.scraped_a_value) : '0원'}</span></div>
+                        </div>
+                        {selectedBid.raw_data.a_value_breakdown && Object.keys(selectedBid.raw_data.a_value_breakdown).length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-yellow-200 text-xs text-gray-600">
+                            <strong>A값 상세내역:</strong> {Object.entries(selectedBid.raw_data.a_value_breakdown).map(([k, v]) => `${k} ${formatCurrency(v as number)}`).join(', ')}
+                          </div>
+                        )}
+                        <a 
+                          href={`https://db.gleemile.com/api/v1/bids/${selectedBid.bid_full_no}/download`}
+                          className="mt-3 block text-center bg-gray-800 text-white py-2 rounded text-xs hover:bg-gray-700 transition"
+                          target="_blank"
+                        >
+                          📄 원본 공고문 파일 다운로드 (AI 추출 근거 확인)
+                        </a>
+                      </div>
+                    )}
+
+                    <div className="flex flex-col border-b pb-1 col-span-2 mt-2">
                       <span className="text-gray-500 mb-1">참가자격조건 (면허)</span>
                       <span className="font-medium text-gray-900">{selectedBid.raw_data.prtcptQlfCndNm || '공고명 기반 자체 필터링 적용 (원문 상세조회 요망)'}</span>
                     </div>
