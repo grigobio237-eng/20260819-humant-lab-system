@@ -37,6 +37,7 @@ class BidPayload(BaseModel):
     lower_rate: float = Field(...)
     range_min: float = Field(97.0)
     range_max: float = Field(103.0)
+    deadline: datetime = Field(...)
     license_condition: Optional[str] = Field(None)
     region_condition: Optional[str] = Field(None)
     raw_data: Optional[dict] = Field(None)
