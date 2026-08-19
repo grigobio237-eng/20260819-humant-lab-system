@@ -17,8 +17,8 @@ async def scrape_kapt_bids(limit: int = 10):
         page = await context.new_page()
         
         try:
-            await page.goto(url, wait_until="networkidle", timeout=15000)
-            await page.wait_for_selector("table tbody tr", timeout=10000)
+            await page.goto(url, wait_until="domcontentloaded", timeout=60000)
+            await page.wait_for_selector("table tbody tr", timeout=30000)
             await asyncio.sleep(2)
             
             rows = await page.locator("table tbody tr").all()
@@ -41,7 +41,7 @@ async def scrape_kapt_bids(limit: int = 10):
                     
                     detail_page = await context.new_page()
                     detail_url = f"https://www.k-apt.go.kr/bid/bidDetail.do?bidNum={bid_num}"
-                    await detail_page.goto(detail_url, wait_until="networkidle")
+                    await detail_page.goto(detail_url, wait_until="domcontentloaded", timeout=60000)
                     detail_text = await detail_page.evaluate("document.body.innerText")
                     
                     bid_no_match = re.search(r"공고번호\s*[:\]]?\s*([A-Za-z0-9\-]+)", detail_text)
