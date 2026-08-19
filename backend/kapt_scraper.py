@@ -45,17 +45,19 @@ async def scrape_kapt_bids(limit: int = 10):
                     await asyncio.sleep(1)
                     detail_text = await detail_page.evaluate("document.body.innerText")
                     
-                    # Update regexes to match K-apt actual text
                     bid_no_match = re.search(r"입찰번호\s*[:\]]?\s*([A-Za-z0-9\-]+)", detail_text)
-                    bid_name_match = re.search(r"입찰제목\s*[:\]]?\s*(.+)", detail_text)
-                    client_match = re.search(r"단지명\s*관리사무소.*?[\r\n]+(.*?)\s*\(", detail_text, re.DOTALL)
-                    if not client_match:
-                        # Fallback for client
-                        client_match = re.search(r"단지명\s*[:\]]?\s*(.+)", detail_text)
+                    bid_name_match = re.search(r"입찰제목\s*[:\]]?\s*([^\t\n]+)", detail_text)
+                    
+                    client_name = "아파트단지"
+                    lines = detail_text.splitlines()
+                    for idx, line in enumerate(lines):
+                        if line.startswith("단지명") and idx + 1 < len(lines):
+                            client_name = lines[idx+1].split("\t")[0].strip()
+                            client_name = re.sub(r"\([^)]*\)", "", client_name).strip()
+                            break
                     
                     base_price_match = re.search(r"기초금액\s*[:\]]?\s*금?\s*([\d,]+)\s*원", detail_text)
                     if not base_price_match:
-                        # K-apt might use "입찰보증금" or something instead, but base_price might be missing.
                         base_price = 0.0
                     else:
                         base_price = float(base_price_match.group(1).replace(",", ""))
@@ -66,22 +68,19 @@ async def scrape_kapt_bids(limit: int = 10):
                         
                     bid_no = bid_no_match.group(1).strip() if bid_no_match else f"KAPT-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
                     bid_name = bid_name_match.group(1).strip() if bid_name_match else "K-apt 민간공고"
-                    client_name = client_match.group(1).strip() if client_match else "아파트단지"
                     deadline_str = deadline_match.group(1).strip() if deadline_match else datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     
                     region_cond = ""
                     license_cond = ""
-                    region_match = re.search(r"지역제한\s*[:\]]?\s*(.+)", detail_text)
+                    region_match = re.search(r"지역제한\s*[:\]]?\s*([^\t\n]+)", detail_text)
                     if region_match: region_cond = region_match.group(1).strip()
                     
-                    license_match = re.search(r"참가자격\s*[:\]]?\s*(.+)", detail_text)
+                    license_match = re.search(r"참가자격\s*[:\]]?\s*([^\t\n]+)", detail_text)
                     if license_match: license_cond = license_match.group(1).strip()
                     
                     attachment_dir = f"storage/attachments/KAPT-{bid_no}"
                     os.makedirs(attachment_dir, exist_ok=True)
                     
-                    # For downloading files in K-apt, it usually uses a function called fileDown
-                    # Let's find links that actually download files. Usually "a:has-text('공고문 참조')" or similar
                     download_links = await detail_page.locator("a:has-text('다운로드'), a:has-text('공고문 참조'), a[href*='fileDown']").all()
                     
                     if download_links:
@@ -91,7 +90,7 @@ async def scrape_kapt_bids(limit: int = 10):
                                     await d_link.click(timeout=5000)
                                 download = await download_info.value
                                 await download.save_as(os.path.join(attachment_dir, download.suggested_filename))
-                                break # Stop after successful download
+                                break
                             except Exception as e:
                                 pass
                     
