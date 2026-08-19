@@ -231,10 +231,10 @@ def sync_kapt_bids(limit: int = 10, db: Session = Depends(get_db)):
             db.refresh(new_bid)
             
             new_calc = models.CalculatedBid(
-                bid_id=new_bid.id,
+                bid_full_no=new_bid.bid_full_no,
+                is_qualified=False,
                 recommended_est_rate=recommended_est_rate,
-                calculated_bid_price=calc_result["final_bid_price"],
-                is_a_value_applied=calc_result["is_a_value_applied"],
+                calculated_bid_price=calc_result["calculated_bid_price"],
                 is_net_cost_applied=calc_result["is_net_cost_applied"]
             )
             db.add(new_calc)
