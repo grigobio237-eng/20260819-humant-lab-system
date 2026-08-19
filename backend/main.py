@@ -9,7 +9,6 @@ from engine import get_recommended_est_rate, calculate_bid_price, check_qualific
 from database import engine, get_db
 import models
 
-# 서버 시작 시 데이터베이스 테이블 자동 생성 (테스트용)
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
@@ -18,88 +17,98 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# 프론트엔드 연동을 위한 CORS 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # 개발용 (실서비스 시 프론트엔드 도메인으로 제한)
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# --- Schemas ---
 class BidPayload(BaseModel):
-    bid_full_no: str = Field(..., title="공고번호-차수", description="예: 20260818001-00")
-    bid_no: str = Field(..., title="원본 공고번호")
-    bid_seq: str = Field(..., title="공고 차수")
-    bid_name: str = Field(..., title="공고명")
-    client_name: str = Field(..., title="발주처")
-    base_price: float = Field(..., title="기초금액", description="수집된 공고의 기초금액 (원)")
-    a_value: float = Field(0.0, title="A값", description="A값 (국민연금 등 제외 대상 금액)")
-    net_cost: float = Field(0.0, title="순공사원가", description="순공사원가 (98% 하한선 검증용)")
-    lower_rate: float = Field(..., title="낙찰하한율", description="예: 0.87745 (87.745%)")
-    range_min: float = Field(97.0, title="사정률 범위 하한", description="예: 97.0 (조달청)")
-    range_max: float = Field(103.0, title="사정률 범위 상한", description="예: 103.0 (조달청)")
-    deadline: datetime.datetime = Field(..., title="입찰 마감 일시")
-    license_req: Optional[Dict[str, float]] = Field(None, title="요구 면허 조건")
+    bid_full_no: str = Field(...)
+    bid_no: str = Field(...)
+    bid_seq: str = Field(...)
+    bid_name: str = Field(...)
+    client_name: str = Field(...)
+    base_price: float = Field(...)
+    a_value: float = Field(0.0)
+    net_cost: float = Field(0.0)
+    lower_rate: float = Field(...)
+    range_min: float = Field(97.0)
+    range_max: float = Field(103.0)
+    deadline: datetime.datetime = Field(...)
+    license_req: Optional[Dict[str, float]] = Field(None)
+    region: str = Field("전국") # 추가된 지역제한 필드
 
-class CompanyPayload(BaseModel):
-    licenses: Dict[str, float] = Field(..., title="자사 보유 면허")
+class CompanyProfilePayload(BaseModel):
+    company_name: str
+    business_reg_no: str
+    region_code: str
+    licenses: Dict[str, float]
     
-# --- Mock Data (과거 사정률 대체용) ---
 MOCK_PAST_RATES = []
 
-@app.get("/", summary="루트(Root) 상태 확인")
+@app.get("/")
 def read_root():
-    return {"status": "ok", "message": "휴먼트 랩 시스템 API 정상 가동 중"}
+    return {"status": "ok"}
 
-import traceback
+# --- 회사 관리 API ---
+@app.get("/api/v1/companies")
+def get_companies(db: Session = Depends(get_db)):
+    companies = db.query(models.CompanyProfile).order_by(models.CompanyProfile.id).all()
+    return companies
 
-@app.post("/api/v1/test_calculate")
-def test_process_new_bid(payload: BidPayload, company: CompanyPayload, db: Session = Depends(get_db)):
-    try:
-        existing_bid = db.query(models.Bid).filter(models.Bid.bid_full_no == payload.bid_full_no).first()
-        fetched_a_value = fetch_a_value(payload.bid_no, payload.bid_seq)
-        final_a_value = fetched_a_value if fetched_a_value > 0 else payload.a_value
-        dynamic_lower_rate = get_lower_rate(payload.base_price, payload.client_name)
-        is_qualified = check_qualification(payload.license_req or {}, company.licenses)
-        recommended_est_rate = get_recommended_est_rate(MOCK_PAST_RATES, payload.range_min, payload.range_max, payload.client_name)
-        calc_result = calculate_bid_price(payload.base_price, final_a_value, payload.net_cost, dynamic_lower_rate, recommended_est_rate)
-        
-        return {"status": "success", "recommended_est_rate": float(recommended_est_rate)}
-    except Exception as e:
-        return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
+@app.post("/api/v1/companies")
+def create_company(payload: CompanyProfilePayload, db: Session = Depends(get_db)):
+    new_company = models.CompanyProfile(
+        company_name=payload.company_name,
+        business_reg_no=payload.business_reg_no,
+        region_code=payload.region_code,
+        licenses=payload.licenses
+    )
+    db.add(new_company)
+    db.commit()
+    db.refresh(new_company)
+    return new_company
 
-@app.post("/api/v1/calculate", summary="신규 공고 투찰가 계산 및 DB 적재")
-def process_new_bid(payload: BidPayload, company: CompanyPayload, db: Session = Depends(get_db)):
-    """
-    n8n 자동화 봇에서 신규 공고 데이터를 넘겨줄 때 호출됩니다.
-    계산 로직 수행 후 DB(bids, calculated_bids)에 저장합니다.
-    """
-    # 1. 기존에 같은 공고(bid_full_no)가 있는지 확인
+@app.put("/api/v1/companies/{company_id}")
+def update_company(company_id: int, payload: CompanyProfilePayload, db: Session = Depends(get_db)):
+    company = db.query(models.CompanyProfile).filter(models.CompanyProfile.id == company_id).first()
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    company.company_name = payload.company_name
+    company.business_reg_no = payload.business_reg_no
+    company.region_code = payload.region_code
+    company.licenses = payload.licenses
+    db.commit()
+    db.refresh(company)
+    return company
+
+@app.delete("/api/v1/companies/{company_id}")
+def delete_company(company_id: int, db: Session = Depends(get_db)):
+    company = db.query(models.CompanyProfile).filter(models.CompanyProfile.id == company_id).first()
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    db.delete(company)
+    db.commit()
+    return {"status": "success"}
+
+# --- 공고 API ---
+@app.post("/api/v1/calculate")
+def process_new_bid(payload: BidPayload, db: Session = Depends(get_db)):
     existing_bid = db.query(models.Bid).filter(models.Bid.bid_full_no == payload.bid_full_no).first()
     if existing_bid:
         return {"status": "skipped", "message": "이미 처리된 공고입니다."}
 
-    # 2. A값 동적 수집 (n8n이 던져준 공고번호로 직접 조달청 API 호출)
     fetched_a_value = fetch_a_value(payload.bid_no, payload.bid_seq)
     final_a_value = fetched_a_value if fetched_a_value > 0 else payload.a_value
-
-    # 3. 낙찰하한율 동적 계산 (기초금액 기준)
     dynamic_lower_rate = get_lower_rate(payload.base_price, payload.client_name)
-
-    # 4. 적격심사 시뮬레이션
-    is_qualified = check_qualification(payload.license_req or {}, company.licenses)
-    
-    # 5. 통계 엔진
     recommended_est_rate = get_recommended_est_rate(MOCK_PAST_RATES, payload.range_min, payload.range_max, payload.client_name)
-    
-    # 6. 투찰가 계산
     calc_result = calculate_bid_price(
         payload.base_price, final_a_value, payload.net_cost, dynamic_lower_rate, recommended_est_rate
     )
     
-    # 7. 데이터베이스 저장 (원본 공고)
     new_bid = models.Bid(
         bid_full_no=payload.bid_full_no,
         bid_no=payload.bid_no,
@@ -112,14 +121,15 @@ def process_new_bid(payload: BidPayload, company: CompanyPayload, db: Session = 
         lower_rate=dynamic_lower_rate,
         range_min=payload.range_min,
         range_max=payload.range_max,
-        deadline=payload.deadline
+        deadline=payload.deadline,
+        region_code=payload.region,
+        license_req=payload.license_req
     )
     db.add(new_bid)
     
-    # 8. 데이터베이스 저장 (계산 결과)
     new_calc = models.CalculatedBid(
         bid_full_no=payload.bid_full_no,
-        is_qualified=is_qualified,
+        is_qualified=False, # 동적 판별로 대체됨
         recommended_est_rate=recommended_est_rate,
         calculated_bid_price=calc_result["calculated_bid_price"],
         is_net_cost_applied=calc_result["is_net_cost_applied"]
@@ -129,17 +139,27 @@ def process_new_bid(payload: BidPayload, company: CompanyPayload, db: Session = 
     
     return {"status": "success", "bid_full_no": payload.bid_full_no}
 
-@app.get("/api/v1/bids", summary="대시보드 표시용 전체 공고 목록 조회")
-def get_bids(db: Session = Depends(get_db)):
-    """
-    프론트엔드(React) 대시보드 화면에 뿌려줄 입찰 공고 목록과 계산 결과를 가져옵니다.
-    """
+@app.get("/api/v1/bids")
+def get_bids(company_id: Optional[int] = None, db: Session = Depends(get_db)):
+    company = None
+    if company_id:
+        company = db.query(models.CompanyProfile).filter(models.CompanyProfile.id == company_id).first()
+        
     results = db.query(models.Bid, models.CalculatedBid).outerjoin(
         models.CalculatedBid, models.Bid.bid_full_no == models.CalculatedBid.bid_full_no
     ).order_by(models.Bid.created_at.desc()).all()
     
     data = []
     for bid, calc in results:
+        is_qualified = False
+        if company:
+            is_qualified = check_qualification(
+                bid.license_req or {},
+                company.licenses or {},
+                bid.region_code,
+                company.region_code
+            )
+            
         data.append({
             "bid_full_no": bid.bid_full_no,
             "bid_name": bid.bid_name,
@@ -148,7 +168,7 @@ def get_bids(db: Session = Depends(get_db)):
             "range": f"{bid.range_min}% ~ {bid.range_max}%",
             "recommended_est_rate": float(calc.recommended_est_rate) if calc else 0.0,
             "calculated_bid_price": float(calc.calculated_bid_price) if calc else 0.0,
-            "is_qualified": calc.is_qualified if calc else False,
+            "is_qualified": is_qualified,
             "deadline": bid.deadline.strftime("%Y-%m-%d %H:%M"),
             "status": calc.review_status if calc else "PENDING",
             "a_value": float(bid.a_value),

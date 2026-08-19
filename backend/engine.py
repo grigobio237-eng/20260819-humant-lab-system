@@ -153,7 +153,14 @@ def calculate_bid_price(base_price: float, a_value: float, net_cost: float, lowe
         "net_limit": net_limit
     }
 
-def check_qualification(bid_license_req: dict, company_licenses: dict) -> bool:
+def check_qualification(bid_license_req: dict, company_licenses: dict, bid_region: str = None, company_region: str = None) -> bool:
+    # 1. 지역 제한 확인
+    if bid_region and bid_region != '전국' and company_region:
+        # 단어 포함 여부로 간단히 체크 (예: '서울' in '서울특별시')
+        if company_region not in bid_region and bid_region not in company_region:
+            return False
+            
+    # 2. 면허 및 시평액 확인
     if not bid_license_req:
         return True
         

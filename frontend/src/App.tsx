@@ -4,16 +4,50 @@ function App() {
   const [bids, setBids] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // 상태 변수 추가: 검색어, 필터, 모달 선택
+  // 상태 변수
   const [searchTerm, setSearchTerm] = useState('');
   const [showOnlyQualified, setShowOnlyQualified] = useState(false);
   const [selectedBid, setSelectedBid] = useState<any | null>(null);
   const [copyFeedback, setCopyFeedback] = useState(false);
 
+  // 회사 관리 상태
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<number | ''>('');
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  
+  // 회사 관리 폼 상태
+  const [editingCompany, setEditingCompany] = useState<any | null>(null);
+  const [formData, setFormData] = useState({
+    company_name: '',
+    business_reg_no: '',
+    region_code: '',
+    licenses: {} as Record<string, number>
+  });
+  const [newLicenseName, setNewLicenseName] = useState('');
+  const [newLicenseLimit, setNewLicenseLimit] = useState('');
+
+  // --- API 호출 함수 ---
+  const fetchCompanies = async () => {
+    try {
+      const res = await fetch('https://db.gleemile.com/api/v1/companies');
+      const data = await res.json();
+      setCompanies(data);
+      // 만약 선택된 회사가 없고 등록된 회사가 있다면 첫 번째 회사 자동 선택
+      if (!selectedCompanyId && data.length > 0) {
+        setSelectedCompanyId(data[0].id);
+      }
+    } catch (error) {
+      console.error("Failed to fetch companies:", error);
+    }
+  };
+
   const fetchBids = async () => {
     setLoading(true);
     try {
-      const response = await fetch('https://db.gleemile.com/api/v1/bids');
+      const url = selectedCompanyId 
+        ? `https://db.gleemile.com/api/v1/bids?company_id=${selectedCompanyId}`
+        : 'https://db.gleemile.com/api/v1/bids';
+      const response = await fetch(url);
       const data = await response.json();
       setBids(data);
     } catch (error) {
@@ -24,16 +58,81 @@ function App() {
   };
 
   useEffect(() => {
-    fetchBids();
+    fetchCompanies();
   }, []);
 
-  // 천 단위 콤마와 '원' 붙이기
+  useEffect(() => {
+    fetchBids();
+  }, [selectedCompanyId]);
+
+  // --- 회사 관리 CRUD ---
+  const saveCompany = async () => {
+    const method = editingCompany ? 'PUT' : 'POST';
+    const url = editingCompany 
+      ? `https://db.gleemile.com/api/v1/companies/${editingCompany.id}`
+      : 'https://db.gleemile.com/api/v1/companies';
+      
+    try {
+      await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      await fetchCompanies();
+      setEditingCompany(null);
+      resetForm();
+    } catch (err) {
+      alert("저장 실패!");
+    }
+  };
+
+  const deleteCompany = async (id: number) => {
+    if(!confirm("정말 이 회사를 삭제하시겠습니까?")) return;
+    try {
+      await fetch(`https://db.gleemile.com/api/v1/companies/${id}`, { method: 'DELETE' });
+      if (selectedCompanyId === id) setSelectedCompanyId('');
+      await fetchCompanies();
+    } catch (err) {
+      alert("삭제 실패!");
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({ company_name: '', business_reg_no: '', region_code: '', licenses: {} });
+  };
+
+  const openEdit = (comp: any) => {
+    setEditingCompany(comp);
+    setFormData({
+      company_name: comp.company_name,
+      business_reg_no: comp.business_reg_no,
+      region_code: comp.region_code || '',
+      licenses: comp.licenses || {}
+    });
+  };
+
+  const addLicense = () => {
+    if (!newLicenseName || !newLicenseLimit) return;
+    setFormData({
+      ...formData,
+      licenses: { ...formData.licenses, [newLicenseName]: Number(newLicenseLimit) }
+    });
+    setNewLicenseName('');
+    setNewLicenseLimit('');
+  };
+
+  const removeLicense = (name: string) => {
+    const newLicenses = { ...formData.licenses };
+    delete newLicenses[name];
+    setFormData({ ...formData, licenses: newLicenses });
+  };
+
+  // --- 포맷팅 등 유틸 ---
   const formatCurrency = (amount: number | undefined) => {
     if (amount === undefined || amount === null) return '0원';
     return amount.toLocaleString('ko-KR') + '원';
   };
 
-  // 투찰가 복사 기능
   const handleCopy = (price: number) => {
     navigator.clipboard.writeText(price.toString()).then(() => {
       setCopyFeedback(true);
@@ -41,7 +140,6 @@ function App() {
     });
   };
 
-  // 필터링 적용
   const filteredBids = bids.filter((bid) => {
     const matchSearch = bid.bid_name.includes(searchTerm) || bid.client_name.includes(searchTerm);
     const matchQualified = showOnlyQualified ? bid.is_qualified === true : true;
@@ -54,14 +152,38 @@ function App() {
         <div className="flex justify-between items-center mb-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-800">휴먼트 랩 시스템 대시보드</h1>
-            <p className="text-gray-500 mt-2">최적 사정률 기반 투찰가 자동 계산 및 적격심사 관리 (DB 실시간 연동)</p>
+            <p className="text-gray-500 mt-2">다중 회사 적격심사 실시간 판별 및 AI 몬테카를로 투찰가 분석</p>
           </div>
-          <button 
-            onClick={fetchBids}
-            className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 transition"
-          >
-            {loading ? '동기화 중...' : '새로고침 (API Sync)'}
-          </button>
+          
+          <div className="flex items-center gap-4">
+            {/* 회사 선택 드롭다운 */}
+            <div className="flex items-center bg-white border rounded shadow-sm px-3 py-2">
+              <span className="text-xl mr-2">🏢</span>
+              <select 
+                value={selectedCompanyId} 
+                onChange={(e) => setSelectedCompanyId(e.target.value ? Number(e.target.value) : '')}
+                className="bg-transparent focus:outline-none font-bold text-gray-700 w-48"
+              >
+                <option value="">-- 회사 선택 (전체 공고) --</option>
+                {companies.map(c => (
+                  <option key={c.id} value={c.id}>{c.company_name}</option>
+                ))}
+              </select>
+            </div>
+            
+            <button 
+              onClick={() => setIsSettingsOpen(true)}
+              className="bg-gray-800 text-white px-4 py-2 rounded shadow hover:bg-gray-900 transition flex items-center gap-2"
+            >
+              ⚙️ 회사 관리
+            </button>
+            <button 
+              onClick={fetchBids}
+              className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 transition"
+            >
+              {loading ? '동기화 중...' : '새로고침 (API Sync)'}
+            </button>
+          </div>
         </div>
         
         {/* 필터 및 검색 바 */}
@@ -80,11 +202,12 @@ function App() {
               onChange={(e) => setShowOnlyQualified(e.target.checked)}
               className="w-4 h-4 text-green-600"
             />
-            <span className="text-sm font-medium text-green-800">적격심사 통과(O) 공고만 보기</span>
+            <span className="text-sm font-medium text-green-800">적격심사 통과(O) 공고만 보기 (선택 회사 기준)</span>
           </label>
         </div>
       </header>
 
+      {/* 공고 리스트 테이블 */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-100">
@@ -139,7 +262,9 @@ function App() {
                   {formatCurrency(bid.calculated_bid_price)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-center">
-                  {bid.is_qualified ? (
+                  {!selectedCompanyId ? (
+                    <span className="text-gray-400 text-xs">회사 미선택</span>
+                  ) : bid.is_qualified ? (
                     <span className="text-green-600 font-bold">통과(O)</span>
                   ) : (
                     <span className="text-red-500 font-bold">미달(X)</span>
@@ -159,12 +284,10 @@ function App() {
         </table>
       </div>
 
-      {/* 모달 창 */}
+      {/* 1. 상세 투찰 모달 */}
       {selectedBid && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col">
-            
-            {/* 모달 헤더 */}
             <div className="p-6 border-b flex justify-between items-start">
               <div>
                 <div className="text-sm text-gray-500 mb-1">{selectedBid.client_name}</div>
@@ -174,41 +297,12 @@ function App() {
               <button 
                 onClick={() => { setSelectedBid(null); setCopyFeedback(false); }}
                 className="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none"
-              >
-                &times;
-              </button>
+              >&times;</button>
             </div>
-
-            {/* 모달 내용 */}
+            
             <div className="p-6 overflow-y-auto bg-gray-50 flex-1">
-              {/* 경고 뱃지 */}
-              {selectedBid.is_net_cost_applied && (
-                <div className="mb-6 p-4 bg-orange-100 border-l-4 border-orange-500 text-orange-800 rounded">
-                  <p className="font-bold">⚠️ 순공사원가 98% 하한선 방어 적용됨</p>
-                  <p className="text-sm mt-1">계산된 투찰가가 순공사원가의 98% 미만으로 떨어져, 법적 하한선으로 자동 보정되었습니다.</p>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-6 mb-6">
-                <div className="bg-white p-4 rounded shadow-sm border">
-                  <div className="text-xs text-gray-500 mb-1">기초금액</div>
-                  <div className="text-lg font-bold">{formatCurrency(selectedBid.base_price)}</div>
-                </div>
-                <div className="bg-white p-4 rounded shadow-sm border">
-                  <div className="text-xs text-gray-500 mb-1">A값 (국민연금 등 제외 대상 금액)</div>
-                  <div className="text-lg font-bold">{formatCurrency(selectedBid.a_value)}</div>
-                </div>
-                <div className="bg-white p-4 rounded shadow-sm border">
-                  <div className="text-xs text-gray-500 mb-1">순공사원가</div>
-                  <div className="text-lg font-bold">{formatCurrency(selectedBid.net_cost)}</div>
-                </div>
-                <div className="bg-white p-4 rounded shadow-sm border">
-                  <div className="text-xs text-gray-500 mb-1">적용 하한율</div>
-                  <div className="text-lg font-bold">{selectedBid.lower_rate ? (selectedBid.lower_rate * 100).toFixed(3) : 0}%</div>
-                </div>
-              </div>
-
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+              {/* 투찰 정보 렌더링... */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
                 <div className="flex justify-between items-end mb-4">
                   <div>
                     <div className="text-sm text-blue-800 font-medium mb-1">AI 몬테카를로 추천 사정률</div>
@@ -219,7 +313,6 @@ function App() {
                     <div className="text-3xl font-black text-gray-900">{formatCurrency(selectedBid.calculated_bid_price)}</div>
                   </div>
                 </div>
-                
                 <button 
                   onClick={() => handleCopy(selectedBid.calculated_bid_price)}
                   className={`w-full py-3 rounded-lg font-bold text-lg transition shadow flex items-center justify-center gap-2 ${
@@ -231,11 +324,8 @@ function App() {
               </div>
             </div>
 
-            {/* 모달 푸터 */}
             <div className="p-4 border-t bg-white flex justify-between items-center">
-              <div className="text-sm text-gray-500">
-                마감일시: {selectedBid.deadline}
-              </div>
+              <div className="text-sm text-gray-500">마감일시: {selectedBid.deadline}</div>
               <a 
                 href={selectedBid.link_url || '#'}
                 target="_blank" 
@@ -244,6 +334,118 @@ function App() {
               >
                 나라장터 공고 바로가기 ↗
               </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. 회사 관리 설정 모달 */}
+      {isSettingsOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[150] p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex overflow-hidden">
+            
+            {/* 좌측: 회사 목록 */}
+            <div className="w-1/3 bg-gray-50 border-r flex flex-col">
+              <div className="p-4 border-b bg-white">
+                <h3 className="font-bold text-lg text-gray-800">등록된 회사 목록</h3>
+              </div>
+              <div className="flex-1 overflow-y-auto p-2">
+                {companies.map(c => (
+                  <div 
+                    key={c.id} 
+                    className="p-3 mb-2 bg-white rounded border shadow-sm cursor-pointer hover:border-blue-500 transition group"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div onClick={() => openEdit(c)} className="flex-1">
+                        <div className="font-bold text-gray-900">{c.company_name}</div>
+                        <div className="text-xs text-gray-500">{c.business_reg_no} / {c.region_code}</div>
+                      </div>
+                      <button 
+                        onClick={() => deleteCompany(c.id)}
+                        className="text-red-500 opacity-0 group-hover:opacity-100 hover:text-red-700 px-2"
+                      >×</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="p-4 bg-white border-t">
+                <button 
+                  onClick={() => { setEditingCompany(null); resetForm(); }}
+                  className="w-full bg-indigo-50 text-indigo-700 py-2 rounded font-medium hover:bg-indigo-100"
+                >+ 새 회사 추가</button>
+              </div>
+            </div>
+
+            {/* 우측: 회사 수정/입력 폼 */}
+            <div className="w-2/3 flex flex-col bg-white">
+              <div className="p-4 border-b flex justify-between items-center">
+                <h3 className="font-bold text-lg text-gray-800">
+                  {editingCompany ? `'${editingCompany.company_name}' 정보 수정` : '새로운 회사 등록'}
+                </h3>
+                <button onClick={() => setIsSettingsOpen(false)} className="text-2xl text-gray-400 hover:text-gray-600">&times;</button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-6">
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">회사명</label>
+                    <input type="text" className="w-full border rounded p-2" 
+                      value={formData.company_name} onChange={e => setFormData({...formData, company_name: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">사업자번호</label>
+                    <input type="text" className="w-full border rounded p-2" 
+                      value={formData.business_reg_no} onChange={e => setFormData({...formData, business_reg_no: e.target.value})} />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">본사 소재지 (예: 서울특별시, 경기도)</label>
+                    <input type="text" className="w-full border rounded p-2" 
+                      value={formData.region_code} onChange={e => setFormData({...formData, region_code: e.target.value})} />
+                  </div>
+                </div>
+
+                <div className="mb-2">
+                  <h4 className="font-bold text-gray-800 border-b pb-2 mb-4">보유 면허 및 시공능력평가액</h4>
+                  
+                  {/* 추가된 면허 리스트 */}
+                  <div className="space-y-2 mb-4">
+                    {Object.entries(formData.licenses).map(([name, limit]) => (
+                      <div key={name} className="flex justify-between items-center bg-gray-50 p-2 rounded border">
+                        <span className="font-medium text-gray-700">{name}</span>
+                        <div className="flex items-center gap-4">
+                          <span className="text-gray-900 font-bold">{formatCurrency(limit)}</span>
+                          <button onClick={() => removeLicense(name)} className="text-red-500 text-sm">삭제</button>
+                        </div>
+                      </div>
+                    ))}
+                    {Object.keys(formData.licenses).length === 0 && (
+                      <div className="text-sm text-gray-400 text-center py-4">등록된 면허가 없습니다.</div>
+                    )}
+                  </div>
+
+                  {/* 면허 추가 인풋 */}
+                  <div className="flex gap-2 items-end bg-blue-50 p-3 rounded">
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium text-gray-600 mb-1">면허명 (예: 실내건축공사업)</label>
+                      <input type="text" className="w-full border rounded p-1.5 text-sm" 
+                        value={newLicenseName} onChange={e => setNewLicenseName(e.target.value)} />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium text-gray-600 mb-1">시평액 (숫자만, 예: 3000000000)</label>
+                      <input type="number" className="w-full border rounded p-1.5 text-sm" 
+                        value={newLicenseLimit} onChange={e => setNewLicenseLimit(e.target.value)} />
+                    </div>
+                    <button onClick={addLicense} className="bg-blue-600 text-white px-3 py-1.5 rounded text-sm font-medium h-[34px]">추가</button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 border-t bg-gray-50 flex justify-end gap-2">
+                <button onClick={() => setIsSettingsOpen(false)} className="px-4 py-2 bg-white border rounded text-gray-700">닫기</button>
+                <button onClick={saveCompany} className="px-4 py-2 bg-blue-600 text-white rounded font-medium hover:bg-blue-700">
+                  {editingCompany ? '수정 내용 저장' : '새 회사 등록'}
+                </button>
+              </div>
             </div>
             
           </div>
