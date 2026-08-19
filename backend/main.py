@@ -180,7 +180,7 @@ from fastapi.responses import FileResponse
 import os
 import glob
 from kapt_scraper import scrape_kapt_bids
-from engine import calculate_bid_price, get_lower_rate, get_recommended_est_rate, MOCK_PAST_RATES
+from engine import calculate_bid_price, get_lower_rate, get_recommended_est_rate
 
 @app.get("/api/v1/kapt/sync")
 def sync_kapt_bids(limit: int = 10, db: Session = Depends(get_db)):
