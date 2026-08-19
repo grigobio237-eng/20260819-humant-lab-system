@@ -301,7 +301,27 @@ function App() {
             </div>
             
             <div className="p-6 overflow-y-auto bg-gray-50 flex-1">
-              {/* 투찰 정보 렌더링... */}
+              {/* 원본 상세 데이터 렌더링 */}
+              {selectedBid.raw_data && Object.keys(selectedBid.raw_data).length > 0 && (
+                <div className="bg-white border rounded-lg p-6 mb-6 shadow-sm">
+                  <h3 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2">공고 상세 정보 (원본)</h3>
+                  <div className="grid grid-cols-2 gap-y-3 gap-x-6 text-sm">
+                    <div className="flex justify-between border-b pb-1"><span className="text-gray-500">계약방법</span> <span className="font-medium text-right text-gray-900">{selectedBid.raw_data.cntrctCnclsMthdNm || '-'}</span></div>
+                    <div className="flex justify-between border-b pb-1"><span className="text-gray-500">낙찰방법</span> <span className="font-medium text-right text-gray-900">{selectedBid.raw_data.scsbidMthdNm || '-'}</span></div>
+                    <div className="flex justify-between border-b pb-1"><span className="text-gray-500">공동수급여부</span> <span className="font-medium text-right text-gray-900">{selectedBid.raw_data.cmmnSpldmdAgrmntMthdNm || '-'}</span></div>
+                    <div className="flex justify-between border-b pb-1"><span className="text-gray-500">발주기관</span> <span className="font-medium text-right text-gray-900">{selectedBid.raw_data.ntceInsttNm || '-'}</span></div>
+                    <div className="flex flex-col border-b pb-1 col-span-2">
+                        <span className="text-gray-500 mb-1">참가자격조건 (면허)</span> 
+                        <span className="font-medium text-indigo-700 leading-relaxed">{selectedBid.raw_data.prtcptQlfCndNm || '-'}</span>
+                    </div>
+                    <div className="flex flex-col border-b pb-1 col-span-2">
+                        <span className="text-gray-500 mb-1">참가가능지역</span> 
+                        <span className="font-medium text-gray-900">{selectedBid.raw_data.prtcptPosblRgnNm || '-'}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
                 <div className="flex justify-between items-end mb-4">
                   <div>
