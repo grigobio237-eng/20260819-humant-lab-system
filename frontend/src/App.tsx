@@ -311,12 +311,12 @@ function App() {
                     <div className="flex justify-between border-b pb-1"><span className="text-gray-500">공동수급여부</span> <span className="font-medium text-right text-gray-900">{selectedBid.raw_data.cmmnSpldmdAgrmntMthdNm || '-'}</span></div>
                     <div className="flex justify-between border-b pb-1"><span className="text-gray-500">발주기관</span> <span className="font-medium text-right text-gray-900">{selectedBid.raw_data.ntceInsttNm || '-'}</span></div>
                     <div className="flex flex-col border-b pb-1 col-span-2">
-                        <span className="text-gray-500 mb-1">참가자격조건 (면허)</span> 
-                        <span className="font-medium text-indigo-700 leading-relaxed">{selectedBid.raw_data.prtcptQlfCndNm || '-'}</span>
+                      <span className="text-gray-500 mb-1">참가자격조건 (면허)</span>
+                      <span className="font-medium text-gray-900">{selectedBid.raw_data.prtcptQlfCndNm || '공고명 기반 자체 필터링 적용 (원문 상세조회 요망)'}</span>
                     </div>
                     <div className="flex flex-col border-b pb-1 col-span-2">
-                        <span className="text-gray-500 mb-1">참가가능지역</span> 
-                        <span className="font-medium text-gray-900">{selectedBid.raw_data.prtcptPosblRgnNm || '-'}</span>
+                      <span className="text-gray-500 mb-1">참가가능지역</span>
+                      <span className="font-medium text-gray-900">{selectedBid.raw_data.prtcptPosblRgnNm || selectedBid.raw_data.cnstrtsiteRgnNm || '전국 (또는 공고 상세참조)'}</span>
                     </div>
                   </div>
                 </div>
