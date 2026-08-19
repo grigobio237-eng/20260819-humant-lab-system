@@ -1,4 +1,6 @@
-import asyncio
+import codecs
+
+content = """import asyncio
 import re
 import os
 import sys
@@ -125,3 +127,6 @@ async def scrape_kapt_bids(limit: int = 10):
     print(f"DEBUG: scrape_kapt_bids RETURNING {len(results)} items!")
     sys.stdout.flush()
     return results
+"""
+with codecs.open('backend/kapt_scraper.py', 'w', encoding='utf-8') as f:
+    f.write(content)

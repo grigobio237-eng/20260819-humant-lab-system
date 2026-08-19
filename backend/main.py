@@ -193,7 +193,7 @@ def sync_kapt_bids(limit: int = 10, db: Session = Depends(get_db)):
         if not existing:
             # 기본값 세팅 및 투찰가 계산
             dynamic_lower_rate = b.get("extracted_lower_rate") if b.get("extracted_lower_rate") > 0 else get_lower_rate(b["base_price"], b["client_name"])
-            recommended_est_rate = get_recommended_est_rate(MOCK_PAST_RATES, 97.0, 103.0, b["client_name"])
+            recommended_est_rate = get_recommended_est_rate([], 97.0, 103.0, b["client_name"])
             
             calc_result = calculate_bid_price(
                 b["base_price"], 
