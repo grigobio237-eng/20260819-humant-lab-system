@@ -15,12 +15,15 @@ def sync_d2b_bids_api(limit: int = 10, include_services: bool = False, db: Sessi
             dynamic_lower_rate = b.get("extracted_lower_rate") if b.get("extracted_lower_rate") > 0 else get_lower_rate(b["base_price"], b["client_name"])
             recommended_est_rate = get_recommended_est_rate([], b.get("range_min", 97.0), b.get("range_max", 103.0), b["client_name"])
             
-            calculated_price, net_cost_applied = calculate_bid_price(
+            calc_result = calculate_bid_price(
                 base_price=b["base_price"],
                 est_rate=recommended_est_rate,
                 a_value=b.get("extracted_a_value", 0.0),
-                lower_rate=dynamic_lower_rate
+                lower_rate=dynamic_lower_rate,
+                net_cost=0.0
             )
+            calculated_price = calc_result["calculated_bid_price"]
+            net_cost_applied = calc_result["is_net_cost_applied"]
             
             new_bid = models.Bid(
                 bid_full_no=b["bid_full_no"],
