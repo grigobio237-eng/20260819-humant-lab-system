@@ -353,6 +353,7 @@ def sync_d2b_bids_api(limit: int = 10, include_services: bool = False, db: Sessi
             
                 new_calc = models.CalculatedBid(
                     bid_full_no=new_bid.bid_full_no,
+                    is_qualified=False,
                     recommended_est_rate=recommended_est_rate,
                     calculated_bid_price=calculated_price,
                     is_net_cost_applied=net_cost_applied,
