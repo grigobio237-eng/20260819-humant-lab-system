@@ -3,78 +3,14 @@ import re
 import os
 import sys
 import datetime
-import httpx
 from playwright.async_api import async_playwright
 from dynamic_parser import parse_bid_text
 
-D2B_API_KEY = os.getenv("D2B_API_KEY", "06729b226c522143633d5b32cb343affcb4b20bc8b9c96627f9c109a65e7ab96")
-# 실제 확인된 국방부 입찰공고 API 엔드포인트로 변경 필요
-D2B_API_URL = os.getenv("D2B_API_URL", "http://apis.data.go.kr/1690000/DefenseProcurementService/getNoticeList")
-
-async def fetch_d2b_bids_api(limit: int = 10, include_services: bool = False):
+async def scrape_d2b_bids(limit: int = 10, include_services: bool = False):
     """
-    OpenAPI를 호출하여 기본 메타데이터(공고번호, 기초금액 등)를 경량 수집합니다.
+    1안 (Pure Playwright): 공공데이터 API 없이 D2B 웹사이트(시설공고)에서 목록과 상세를 모두 스크래핑.
     """
-    params = {
-        "ServiceKey": D2B_API_KEY,
-        "numOfRows": limit,
-        "pageNo": 1,
-        "type": "json"
-    }
-    
     results = []
-    
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(D2B_API_URL, params=params, timeout=15.0)
-            if response.status_code == 200:
-                data = response.json()
-                items = data.get("response", {}).get("body", {}).get("items", [])
-                
-                for item in items[:limit]:
-                    # 시설공사만 수집 (include_services 가 False일 경우)
-                    task_type = item.get("업무구분", "시설")
-                    if not include_services and "용역" in task_type:
-                        continue
-                        
-                    results.append({
-                        "bid_no": item.get("공고번호", f"D2B-{datetime.datetime.now().strftime('%Y%m%d%H%M')}"),
-                        "bid_name": item.get("공고명", "국방전자조달 입찰공고"),
-                        "client_name": item.get("발주기관", "방위사업청"),
-                        "base_price": float(item.get("기초금액", 0)),
-                        "deadline": item.get("마감일시", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
-                    })
-    except Exception as e:
-        print(f"D2B API fetch error: {e}")
-        
-    # 만약 API가 아직 동작하지 않는 환경이라면, 테스트용 임시 데이터를 반환합니다.
-    if not results:
-        results.append({
-            "bid_no": f"D2B-{datetime.datetime.now().strftime('%Y%m%d%H%M')}",
-            "bid_name": "국방전자조달 테스트 시설공고",
-            "client_name": "방위사업청",
-            "base_price": 100000000.0,
-            "deadline": (datetime.datetime.now() + datetime.timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S"),
-        })
-        
-    return results
-
-async def scrape_d2b_details(bid_no: str):
-    """
-    Playwright를 사용하여 D2B 사이트에 접근하고 첨부파일 및 사정률 등을 파싱합니다.
-    """
-    url = "https://www.d2b.go.kr/index.do"
-    
-    result = {
-        "region_condition": "",
-        "license_condition": "",
-        "extracted_a_value": 0.0,
-        "extracted_lower_rate": 0.0,
-        "a_value_breakdown": {},
-        "confidence_level": "LOW",
-        "range_min": 97.0,
-        "range_max": 103.0,
-    }
     
     async with async_playwright() as p:
         browser = await p.chromium.launch(
@@ -91,90 +27,141 @@ async def scrape_d2b_details(bid_no: str):
             viewport={"width": 1920, "height": 1080}
         )
         
-        # 봇 탐지 우회 (Stealth)
-        await context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-        
         page = await context.new_page()
         
         try:
-            # 1. 메인 페이지 이동
-            await page.goto(url, wait_until="domcontentloaded", timeout=60000)
+            print("D2B 시설공고 목록 페이지 접속 중...")
+            await page.goto("https://www.d2b.go.kr/peb/bid/announceList.do?key=41", wait_until="networkidle", timeout=30000)
             
-            # 2. iframe 핸들링
-            main_frame = page.frame_locator("iframe#mainFrame").first
+            # 목록 테이블(SBGrid)이 로딩될 때까지 대기
+            await page.wait_for_selector("a.fgirdB", state="visible", timeout=15000)
+            await page.wait_for_timeout(2000) # SBGrid 렌더링 안정화
             
-            # 3. 팝업 핸들링
-            try:
-                async with page.expect_popup(timeout=30000) as popup_info:
-                    # 실제 환경에서는 UI를 클릭하거나 D2B의 특정 JS 함수를 호출해야 합니다.
-                    # 여기서는 예시 URL을 팝업으로 엽니다.
-                    await page.evaluate(f"window.open('https://www.d2b.go.kr/pz/wb/mo/openDetail.do?bid_no={bid_no}', '_blank', 'width=800,height=600')")
+            # 테이블 행(tr) 목록 가져오기
+            # SBGrid는 보통 <tr class="sbgrid_datagrid_DataRow"> 등의 형태를 띕니다.
+            rows = await page.locator("tr[id^='SBHE_datagrid']").all()
+            
+            if not rows:
+                print("D2B 공고 목록을 찾을 수 없습니다.")
+                return results
                 
-                popup = await popup_info.value
-                await popup.wait_for_load_state("domcontentloaded")
-                
-                detail_text = await popup.evaluate("document.body.innerText")
-                
-                # 사정률 범위 파싱 (±2%, ±3%, 또는 98~102%)
-                range_match = re.search(r"사정률\s*.*?(\d{1,2}(?:\.\d+)?)\s*~\s*(\d{1,3}(?:\.\d+)?)", detail_text)
-                if range_match:
-                    result["range_min"] = float(range_match.group(1))
-                    result["range_max"] = float(range_match.group(2))
-                else:
-                    pm_match = re.search(r"±\s*(\d{1,2}(?:\.\d+)?)%", detail_text)
-                    if pm_match:
-                        val = float(pm_match.group(1))
-                        result["range_min"] = 100.0 - val
-                        result["range_max"] = 100.0 + val
+            processed = 0
+            for row in rows:
+                if processed >= limit:
+                    break
+                    
+                try:
+                    # SBGrid 컬럼별 데이터 추출
+                    tds = await row.locator("td").all()
+                    if len(tds) < 10:
+                        continue
                         
-                # 첨부파일 분석
-                parsed_data = parse_bid_text(detail_text, 0.0)
-                result["extracted_a_value"] = parsed_data["extracted_a_value"]
-                result["extracted_lower_rate"] = parsed_data["extracted_lower_rate"]
-                result["a_value_breakdown"] = parsed_data["a_value_breakdown"]
-                result["confidence_level"] = parsed_data["confidence_level"]
-                
-                # 첨부파일 다운로드
-                attachment_dir = f"storage/attachments/D2B-{bid_no}"
-                os.makedirs(attachment_dir, exist_ok=True)
-                
-                download_links = await popup.locator("a:has-text('다운로드'), a:has-text('공고문'), a[href*='download']").locator("visible=true").all()
-                if download_links:
-                    for d_link in download_links:
-                        try:
-                            async with popup.expect_download(timeout=5000) as download_info:
-                                await d_link.click(timeout=5000)
-                            download = await download_info.value
-                            await download.save_as(os.path.join(attachment_dir, download.suggested_filename))
-                            break
-                        except:
-                            pass
-                            
-                await popup.close()
-                
-            except Exception as e:
-                print(f"Popup extraction failed for {bid_no}: {e}")
-                
+                    # 공고번호 (2번 텍스트 안에 있음, e.g. 2026-08-18 2026-12541)
+                    bid_no_text = await tds[2].inner_text()
+                    bid_no_match = re.search(r"(\d{4}-\d{5,})", bid_no_text)
+                    if not bid_no_match:
+                        continue
+                    bid_no = bid_no_match.group(1)
+                    
+                    # 공고명
+                    bid_name = await tds[4].inner_text()
+                    bid_name = bid_name.strip()
+                    
+                    # 발주기관
+                    client_name = await tds[5].inner_text()
+                    client_name = client_name.strip()
+                    
+                    # 마감일시 (7번 텍스트 안에 있음, e.g. 2026-08-24 10:00\n2026-08-24 10:30)
+                    deadline_text = await tds[7].inner_text()
+                    deadline_match = re.search(r"(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2})", deadline_text)
+                    deadline = deadline_match.group(1) + ":00" if deadline_match else (datetime.datetime.now() + datetime.timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
+                    
+                    # 기초예가 (9번 텍스트, e.g. 22,566,000 원)
+                    price_text = await tds[9].inner_text()
+                    base_price = float(re.sub(r"[^\d.]", "", price_text)) if re.sub(r"[^\d.]", "", price_text) else 0.0
+                    
+                    if base_price == 0:
+                        continue # 기초금액 없는 공고는 제외
+                        
+                    # 상세 팝업 열기 (공고명 링크 클릭)
+                    link_element = tds[4].locator("a")
+                    
+                    detail_result = {
+                        "region_condition": "",
+                        "license_condition": "",
+                        "extracted_a_value": 0.0,
+                        "extracted_lower_rate": 0.0,
+                        "a_value_breakdown": {},
+                        "confidence_level": "LOW",
+                        "range_min": 97.0,
+                        "range_max": 103.0,
+                    }
+                    
+                    try:
+                        async with page.expect_popup(timeout=10000) as popup_info:
+                            await link_element.click()
+                        
+                        popup = await popup_info.value
+                        await popup.wait_for_load_state("domcontentloaded")
+                        await popup.wait_for_timeout(1000)
+                        
+                        detail_text = await popup.evaluate("document.body.innerText")
+                        
+                        # 사정률 파싱
+                        range_match = re.search(r"사정률\s*.*?(\d{1,2}(?:\.\d+)?)\s*~\s*(\d{1,3}(?:\.\d+)?)", detail_text)
+                        if range_match:
+                            detail_result["range_min"] = float(range_match.group(1))
+                            detail_result["range_max"] = float(range_match.group(2))
+                        else:
+                            pm_match = re.search(r"±\s*(\d{1,2}(?:\.\d+)?)%", detail_text)
+                            if pm_match:
+                                val = float(pm_match.group(1))
+                                detail_result["range_min"] = 100.0 - val
+                                detail_result["range_max"] = 100.0 + val
+                                
+                        parsed_data = parse_bid_text(detail_text, base_price)
+                        detail_result["extracted_a_value"] = parsed_data["extracted_a_value"]
+                        detail_result["extracted_lower_rate"] = parsed_data["extracted_lower_rate"]
+                        detail_result["a_value_breakdown"] = parsed_data["a_value_breakdown"]
+                        detail_result["confidence_level"] = parsed_data["confidence_level"]
+                        
+                        # 첨부파일 다운로드
+                        attachment_dir = f"storage/attachments/D2B-{bid_no}"
+                        os.makedirs(attachment_dir, exist_ok=True)
+                        
+                        download_links = await popup.locator("a:has-text('다운로드'), a:has-text('공고문'), a[href*='download']").locator("visible=true").all()
+                        for d_link in download_links:
+                            try:
+                                async with popup.expect_download(timeout=5000) as download_info:
+                                    await d_link.click(timeout=5000)
+                                download = await download_info.value
+                                await download.save_as(os.path.join(attachment_dir, download.suggested_filename))
+                                break
+                            except:
+                                pass
+                                
+                        await popup.close()
+                    except Exception as ex:
+                        print(f"[{bid_no}] 상세 팝업 처리 실패: {ex}")
+                    
+                    results.append({
+                        "bid_full_no": f"D2B-{bid_no}",
+                        "bid_no": bid_no,
+                        "bid_name": bid_name,
+                        "client_name": client_name,
+                        "base_price": base_price,
+                        "deadline": deadline,
+                        **detail_result
+                    })
+                    processed += 1
+                    
+                except Exception as e:
+                    print(f"행 처리 중 오류 발생: {e}")
+                    continue
+                    
         except Exception as e:
-            print(f"D2B Scraper Error for {bid_no}: {e}")
+            print(f"D2B Scraper Main Error: {e}")
         finally:
             await browser.close()
             
-    return result
-
-async def sync_d2b_bids(limit: int = 10, include_services: bool = False):
-    """
-    API 조회와 Playwright 상세 조회를 결합하는 메인 로직.
-    """
-    bids_meta = await fetch_d2b_bids_api(limit, include_services)
-    
-    results = []
-    for meta in bids_meta:
-        details = await scrape_d2b_details(meta["bid_no"])
-        
-        merged = {**meta, **details}
-        merged["bid_full_no"] = f"D2B-{meta['bid_no']}"
-        merged["client_name"] = f"[D2B] {meta['client_name']}"
-        results.append(merged)
-        
     return results

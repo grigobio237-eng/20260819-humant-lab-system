@@ -303,14 +303,14 @@ def get_bids(company_id: Optional[int] = None, db: Session = Depends(get_db)):
 
 
 
-from d2b_scraper import sync_d2b_bids
+from d2b_scraper import scrape_d2b_bids
 
 @app.get("/api/v1/d2b/sync")
 def sync_d2b_bids_api(limit: int = 10, include_services: bool = False, db: Session = Depends(get_db)):
     import asyncio
     import traceback
     try:
-        d2b_bids = asyncio.run(sync_d2b_bids(limit, include_services))
+        d2b_bids = asyncio.run(scrape_d2b_bids(limit, include_services))
         saved_count = 0
     
         for b in d2b_bids:
