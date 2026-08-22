@@ -243,16 +243,13 @@ def sync_kapt_bids(limit: int = 10, db: Session = Depends(get_db)):
             
     return {"status": "success", "scraped": len(kapt_bids), "saved": saved_count}
 
+from fastapi.responses import RedirectResponse
 @app.get("/api/v1/bids/{bid_full_no}/download")
-def download_attachment(bid_full_no: str):
-    dir_path = f"storage/attachments/{bid_full_no}"
-    if os.path.exists(dir_path):
-        files = glob.glob(f"{dir_path}/*")
-        if files:
-            # 첫 번째 첨부파일 다운로드
-            return FileResponse(path=files[0], filename=os.path.basename(files[0]))
+def download_attachment(bid_full_no: str, db: Session = Depends(get_db)):
+    bid = db.query(models.Bid).filter(models.Bid.bid_full_no == bid_full_no).first()
+    if bid and bid.link_url:
+        return RedirectResponse(url=bid.link_url)
     raise HTTPException(status_code=404, detail="File not found")
-
 @app.get("/api/v1/bids")
 def get_bids(company_id: Optional[int] = None, db: Session = Depends(get_db)):
     company = None
