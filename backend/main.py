@@ -353,18 +353,20 @@ def sync_d2b_bids_api(limit: int = 10, include_services: bool = False, db: Sessi
                 )
                 db.add(new_bid)
             
-                new_calc = models.CalculatedBid(
-                    bid_full_no=new_bid.bid_full_no,
-                    is_qualified=False,
-                    recommended_est_rate=recommended_est_rate,
-                    calculated_bid_price=calculated_price,
-                    is_net_cost_applied=net_cost_applied,
-                    review_status="PENDING"
-                )
-                db.add(new_calc)
-                saved_count += 1
-            
-            db.commit()
-            return {"status": "success", "scraped": len(d2b_bids), "saved": saved_count}
+                if b.get("extracted_a_value", 0) > 0:
+                    new_calc = models.CalculatedBid(
+                        bid_full_no=b["bid_full_no"],
+                        is_qualified=False,
+                        recommended_est_rate=recommended_est_rate,
+                        calculated_bid_price=calculated_price,
+                        is_net_cost_applied=net_cost_applied,
+                        review_status="PENDING"
+                    )
+                    db.add(new_calc)
+                    saved_count += 1
+                
+                db.commit()
+        
+        return {"status": "success", "scraped": len(d2b_bids), "saved": saved_count}
     except Exception as e:
         return {"status": "error", "traceback": traceback.format_exc()}
