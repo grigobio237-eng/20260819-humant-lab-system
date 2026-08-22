@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS company_profiles (
     id SERIAL PRIMARY KEY,
     company_name VARCHAR(100) NOT NULL,
     business_reg_no VARCHAR(20) UNIQUE NOT NULL, -- 사업자등록번호
-    region_code VARCHAR(10), -- 주영업소 지역코드
+    region_code VARCHAR(255), -- 주영업소 지역코드
     licenses JSONB, -- 보유 면허 및 시공능력평가액 (예: {"건축": 1000000000, "토목": 500000000})
     management_score NUMERIC(5,2), -- 경영상태 평가점수 (만점 기준)
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -19,8 +19,10 @@ CREATE TABLE IF NOT EXISTS bids (
     bid_seq VARCHAR(10) NOT NULL, -- 차수 (bidNtceOrd)
     bid_name VARCHAR(255) NOT NULL, -- 공고명
     client_name VARCHAR(100), -- 발주처/수요기관
-    region_code VARCHAR(10), -- 공고 지역코드
-    license_req JSONB, -- 요구 면허 조건
+    region_code VARCHAR(255), -- 공고 지역코드
+    license_condition TEXT, -- 요구 면허 조건
+    region_condition TEXT, -- 지역 제한 조건
+    raw_data JSONB, -- 원본 데이터
     base_price NUMERIC(15,0) NOT NULL, -- 기초금액 (P_base)
     a_value NUMERIC(15,0) DEFAULT 0, -- A값
     net_cost NUMERIC(15,0) DEFAULT 0, -- 순공사원가 (C_net)
