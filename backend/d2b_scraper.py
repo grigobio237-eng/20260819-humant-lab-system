@@ -146,8 +146,8 @@ async def scrape_d2b_bids(limit: int = 10, include_services: bool = False):
                             download = await download_info.value
                             await download.save_as(os.path.join(attachment_dir, download.suggested_filename))
                             break
-                        except:
-                            pass
+                        except Exception as e:
+                            print(f"[D2B Download Error] {item['bid_no']}: {e}")
                             
                 except Exception as ex:
                     print(f"[{item['bid_no']}] 상세 페이지 파싱 실패: {ex}")

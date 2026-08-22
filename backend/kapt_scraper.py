@@ -92,7 +92,7 @@ async def scrape_kapt_bids(limit: int = 10):
                                 await download.save_as(os.path.join(attachment_dir, download.suggested_filename))
                                 break
                             except Exception as e:
-                                pass
+                                print(f"[KAPT Download Error] {bid_no}: {e}")
                     
                     parsed_data = parse_bid_text(detail_text, base_price)
                     

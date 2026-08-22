@@ -86,15 +86,17 @@ async def scrape_g2b_details(bid_no: str, bid_seq: str, bid_full_no: str, base_p
             # 다운로드 파일 (공고문 등) - 백그라운드 저장
             try:
                 # '공고'나 '안내서'가 포함된 링크 다운로드
-                download_links = await page.locator("a:has-text('공고'), a:has-text('안내서')").locator("visible=true").all()
+                download_links = await frame.locator("a:has-text('공고'), a:has-text('안내문')").all()
                 if download_links:
-                    try:
-                        async with page.expect_download(timeout=5000) as download_info:
-                            await download_links[0].click(timeout=5000, force=True)
-                        download = await download_info.value
-                        await download.save_as(os.path.join(attachment_dir, download.suggested_filename))
-                    except Exception as e:
-                        print(f"Download error: {e}")
+                    for d_link in download_links:
+                        try:
+                            async with page.expect_download(timeout=5000) as download_info:
+                                await d_link.click(timeout=5000, force=True)
+                            download = await download_info.value
+                            await download.save_as(os.path.join(attachment_dir, download.suggested_filename))
+                            break
+                        except Exception as e:
+                            print(f"Download error: {e}")
             except Exception as e:
                 print("Download error:", e)
                 
