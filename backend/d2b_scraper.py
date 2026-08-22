@@ -72,6 +72,11 @@ async def scrape_d2b_bids(limit: int = 10, include_services: bool = False):
                     if base_price == 0:
                         continue
                         
+                    # 중복 공고 방지 (SBGrid에 동일 공고가 여러 번 렌더링되는 경우)
+                    if any(item["bid_no"] == bid_no for item in items_to_process):
+                        processed += 1
+                        continue
+                        
                     items_to_process.append({
                         "index": processed, # row index for clicking
                         "bid_no": bid_no,

@@ -278,6 +278,8 @@ def get_bids(company_id: Optional[int] = None, db: Session = Depends(get_db)):
             
         if bid.bid_full_no.startswith("KAPT-"):
             link_url = "https://www.k-apt.go.kr/bid/bidList.do"
+        elif bid.bid_full_no.startswith("D2B-"):
+            link_url = "https://www.d2b.go.kr/peb/bid/announceList.do?key=41"
         else:
             link_url = f"https://www.g2b.go.kr/link/PNPE027_01/single/?bidPbancNo={bid.bid_no}&bidPbancOrd={bid.bid_seq}" if bid.bid_no.startswith("R") else f"https://www.g2b.go.kr/pt/menu/selectSubFrame.do?framesrc=/ep/invitation/publish/bidInfoDtl.do?bidno={bid.bid_no}%26bidseq={bid.bid_seq}"
             
