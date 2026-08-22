@@ -87,7 +87,7 @@ async def scrape_kapt_bids(limit: int = 10):
                         for idx, d_link in enumerate(download_links):
                             try:
                                 async with detail_page.expect_download(timeout=5000) as download_info:
-                                    await d_link.click(timeout=5000)
+                                    await d_link.click(timeout=5000, force=True)
                                 download = await download_info.value
                                 await download.save_as(os.path.join(attachment_dir, download.suggested_filename))
                                 break

@@ -1,0 +1,201 @@
+[
+  {
+    "bid_full_no": "D2B-2026-12886",
+    "bid_no": "2026-12886",
+    "bid_name": "00부대 병영생활관 옥상 방수공사",
+    "client_name": "육군항공사령부",
+    "base_price": 90000000.0,
+    "deadline": "2026-08-24 10:00:00",
+    "region_condition": "",
+    "license_condition": "",
+    "extracted_a_value": 4129960.0,
+    "extracted_lower_rate": 0.0,
+    "a_value_breakdown": {
+      "국민연금": 1449047.0,
+      "건강보험": 1096700.0,
+      "산업안전보건": 1584213.0
+    },
+    "confidence_level": "LOW",
+    "range_min": 97.0,
+    "range_max": 103.0
+  },
+  {
+    "bid_full_no": "D2B-2026-12439",
+    "bid_no": "2026-12439",
+    "bid_name": "(D-11) 00부대 생활관 급탕보일러 교체공사",
+    "client_name": "제39보병사단",
+    "base_price": 62997800.0,
+    "deadline": "2026-08-24 10:00:00",
+    "region_condition": "",
+    "license_condition": "",
+    "extracted_a_value": 889865.0,
+    "extracted_lower_rate": 0.0,
+    "a_value_breakdown": {
+      "국민연금": 323619.0,
+      "건강보험": 244928.0,
+      "산업안전보건": 321318.0
+    },
+    "confidence_level": "LOW",
+    "range_min": 97.0,
+    "range_max": 103.0
+  },
+  {
+    "bid_full_no": "D2B-2026-12544",
+    "bid_no": "2026-12544",
+    "bid_name": "[B26200] 00교육대 보수공사(소방)",
+    "client_name": "제7군단",
+    "base_price": 10568000.0,
+    "deadline": "2026-08-24 10:00:00",
+    "region_condition": "",
+    "license_condition": "",
+    "extracted_a_value": 419890.0,
+    "extracted_lower_rate": 0.0,
+    "a_value_breakdown": {
+      "국민연금": 239003.0,
+      "건강보험": 180887.0
+    },
+    "confidence_level": "LOW",
+    "range_min": 97.0,
+    "range_max": 103.0
+  },
+  {
+    "bid_full_no": "D2B-2026-12509",
+    "bid_no": "2026-12509",
+    "bid_name": "26-B-08 계획보수공사",
+    "client_name": "제9196부대",
+    "base_price": 79789000.0,
+    "deadline": "2026-08-24 10:00:00",
+    "region_condition": "",
+    "license_condition": "",
+    "extracted_a_value": 3181508.0,
+    "extracted_lower_rate": 0.0,
+    "a_value_breakdown": {
+      "국민연금": 1268805.0,
+      "건강보험": 960285.0,
+      "산업안전보건": 952418.0
+    },
+    "confidence_level": "LOW",
+    "range_min": 97.0,
+    "range_max": 103.0
+  },
+  {
+    "bid_full_no": "D2B-2026-12493",
+    "bid_no": "2026-12493",
+    "bid_name": "26-B-09 계획보수공사",
+    "client_name": "제9196부대",
+    "base_price": 89713730.0,
+    "deadline": "2026-08-24 10:00:00",
+    "region_condition": "",
+    "license_condition": "",
+    "extracted_a_value": 3391838.0,
+    "extracted_lower_rate": 0.0,
+    "a_value_breakdown": {
+      "국민연금": 989850.0,
+      "건강보험": 749160.0,
+      "산업안전보건": 1652828.0
+    },
+    "confidence_level": "LOW",
+    "range_min": 97.0,
+    "range_max": 103.0
+  },
+  {
+    "bid_full_no": "D2B-2026-12469",
+    "bid_no": "2026-12469",
+    "bid_name": "26-J-계-01 보수공사",
+    "client_name": "제9해병여단",
+    "base_price": 93000000.0,
+    "deadline": "2026-08-24 10:00:00",
+    "region_condition": "",
+    "license_condition": "",
+    "extracted_a_value": 2388115.0,
+    "extracted_lower_rate": 0.0,
+    "a_value_breakdown": {
+      "국민연금": 205363.0,
+      "건강보험": 155427.0,
+      "산업안전보건": 2027325.0
+    },
+    "confidence_level": "LOW",
+    "range_min": 97.0,
+    "range_max": 103.0
+  },
+  {
+    "bid_full_no": "D2B-2026-12519",
+    "bid_no": "2026-12519",
+    "bid_name": "26-00센터 등 2개소 공조기 보수공사",
+    "client_name": "국방부계룡대근무지원단",
+    "base_price": 32110000.0,
+    "deadline": "2026-08-24 10:00:00",
+    "region_condition": "",
+    "license_condition": "",
+    "extracted_a_value": 1247598.0,
+    "extracted_lower_rate": 0.0,
+    "a_value_breakdown": {
+      "국민연금": 324816.0,
+      "건강보험": 245834.0,
+      "산업안전보건": 676948.0
+    },
+    "confidence_level": "LOW",
+    "range_min": 97.0,
+    "range_max": 103.0
+  },
+  {
+    "bid_full_no": "D2B-2026-12541",
+    "bid_no": "2026-12541",
+    "bid_name": "26-00중대 등 2개소 세탁실 전원공사",
+    "client_name": "국방부계룡대근무지원단",
+    "base_price": 22566000.0,
+    "deadline": "2026-08-24 10:00:00",
+    "region_condition": "",
+    "license_condition": "",
+    "extracted_a_value": 948283.0,
+    "extracted_lower_rate": 0.0,
+    "a_value_breakdown": {
+      "국민연금": 375178.0,
+      "건강보험": 283950.0,
+      "산업안전보건": 289155.0
+    },
+    "confidence_level": "LOW",
+    "range_min": 97.0,
+    "range_max": 103.0
+  },
+  {
+    "bid_full_no": "D2B-2026-12433",
+    "bid_no": "2026-12433",
+    "bid_name": "26-충-육-14 유휴시설 철거공사",
+    "client_name": "제1891부대",
+    "base_price": 89080000.0,
+    "deadline": "2026-08-24 10:00:00",
+    "region_condition": "",
+    "license_condition": "",
+    "extracted_a_value": 3938475.0,
+    "extracted_lower_rate": 0.0,
+    "a_value_breakdown": {
+      "국민연금": 1570950.0,
+      "건강보험": 1188961.0,
+      "산업안전보건": 1178564.0
+    },
+    "confidence_level": "LOW",
+    "range_min": 97.0,
+    "range_max": 103.0
+  },
+  {
+    "bid_full_no": "D2B-2026-12524",
+    "bid_no": "2026-12524",
+    "bid_name": "[B26198] 00교육대 보수공사(기계)",
+    "client_name": "제7군단",
+    "base_price": 60000000.0,
+    "deadline": "2026-08-24 10:00:00",
+    "region_condition": "",
+    "license_condition": "",
+    "extracted_a_value": 2281957.0,
+    "extracted_lower_rate": 0.0,
+    "a_value_breakdown": {
+      "국민연금": 604739.0,
+      "건강보험": 457692.0,
+      "산업안전보건": 1219526.0
+    },
+    "confidence_level": "LOW",
+    "range_min": 97.0,
+    "range_max": 103.0
+  }
+]

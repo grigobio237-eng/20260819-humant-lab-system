@@ -142,7 +142,7 @@ async def scrape_d2b_bids(limit: int = 10, include_services: bool = False):
                     for d_link in download_links:
                         try:
                             async with detail_page.expect_download(timeout=5000) as download_info:
-                                await d_link.click(timeout=5000)
+                                await d_link.click(timeout=5000, force=True)
                             download = await download_info.value
                             await download.save_as(os.path.join(attachment_dir, download.suggested_filename))
                             break
